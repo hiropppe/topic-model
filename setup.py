@@ -11,7 +11,9 @@ from Cython.Build import cythonize
 
 
 extensions = [
-    Extension('model.clda', sources=['model/clda.pyx'], language="c++", extra_compile_args=["-std=c++11"]),
+    Extension('model.clda', sources=['model/clda.pyx'], language="c++", extra_compile_args=["-O3", "-mtune=native", "-march=native", "-mfpmath=both"]),
+    #Extension('model.clda', sources=['model/clda.pyx'], language="c++", extra_compile_args=["-std=c++11", "-O3"]),
+    Extension('model.jtm', sources=['model/jtm.pyx'], language="c++", extra_compile_args=["-std=c++11"]),
 ]
 
 core.setup(
@@ -46,4 +48,3 @@ setup(
   data_files=[
   ]
 )
-

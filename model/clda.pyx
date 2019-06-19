@@ -12,9 +12,6 @@ from libc.stdlib cimport rand, RAND_MAX
 ctypedef np.int32_t INT_t
 ctypedef np.float64_t DOUBLE_t
 
-cdef extern from "math.h":
-    double log (double x)
-
 
 def init(list D,
          list Z,
@@ -48,10 +45,7 @@ def inference(list D,
     cdef int N = n_dk.shape[0]
     cdef int K = n_dk.shape[1]
     cdef int V = n_kw.shape[1]
-    cdef int i
-    cdef int d
-    cdef int n
-    cdef int w
+    cdef int m, n, d, w
     cdef Py_ssize_t w_dn, z_dn
     cdef double total
     cdef np.ndarray[DOUBLE_t, ndim=1] p = np.zeros(K)
@@ -64,9 +58,9 @@ def inference(list D,
 
     rands = np.random.rand(L)
     w = 0
-    for i in range(N):
-        #d = seq[i]
-        d = i
+    for m in range(N):
+        #d = seq[m]
+        d = m
         for n in range(n_d[d]):
             z_dn = Z[d][n]
             w_dn = D[d][n]

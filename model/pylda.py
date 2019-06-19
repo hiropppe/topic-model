@@ -48,7 +48,6 @@ class LDA():
         self.V = len(self.vocab)
 
         self.n_kw = np.zeros((self.K, self.V))  # number of word w assigned to topic k
-        # self.m_k = [0] * self.K
         self.n_k = [0] * self.K  # total number of words assigned to topic k
         self.n_dk = np.zeros((self.N, self.K))  # number of words in document d assigned to topic k
         self.n_d = [0] * self.N  # number of word in document (document length)
@@ -57,20 +56,15 @@ class LDA():
 
         logging.info("Randomly initializing topic assignments ...")
         self.z = []
-        pbar = tqdm(total=len(self.docs))
         for d, doc in enumerate(self.docs):
             self.W += len(doc)
             self.n_d[d] = len(doc)
             self.z.append(np.random.randint(self.K, size=self.n_d[d]))
             for n, w_dn in enumerate(doc):
-                #z_dn = np.random.choice(range(self.K), p=self.phi)
-                #self.z[d].append(z_dn)
                 z_dn = self.z[d][n]
                 self.n_dk[d, z_dn] += 1
                 self.n_kw[z_dn, w_dn] += 1
                 self.n_k[z_dn] += 1
-            # self.m_k[d] += 1
-            pbar.update(n=1)
 
         self.alpha = alpha
         self.beta = beta
