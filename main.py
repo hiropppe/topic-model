@@ -1,9 +1,9 @@
-#/usr/bin/env python
+# /usr/bin/env python
 import click
 import logging
 
-from model.lda import LDA
-from model.clda import LDA as cLDA
+from model.lda import train as clda
+from model.pylda import train as plda
 
 
 @click.command()
@@ -16,11 +16,11 @@ from model.clda import LDA as cLDA
 def main(corpus, k, alpha,  beta, n_iter, py):
     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
     if py:
-        lda = LDA(corpus, k, alpha, beta)
+        lda = plda
     else:
-        lda = cLDA(corpus, k, alpha, beta)
-    lda.inference(n_iter)
-    lda.save('test')
+        lda = clda
+
+    lda(corpus, k, alpha, beta, n_iter)
 
 
 if __name__ == '__main__':

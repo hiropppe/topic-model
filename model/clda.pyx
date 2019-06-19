@@ -2,144 +2,96 @@
 # cython: wraparound = False
 # cython: cdivision = True
 
-import logging
 import numpy as np
+
 cimport numpy as np
-import time
+cimport cython
 
-from gensim import matutils
-from gensim.models.word2vec import LineSentence
+from libc.stdlib cimport rand, RAND_MAX
 
-from tqdm import tqdm
-
-ctypedef np.int_t INT_t
+ctypedef np.int32_t INT_t
 ctypedef np.float64_t DOUBLE_t
 
-cdef class LDA(object):
+cdef extern from "math.h":
+    double log (double x)
 
-    cdef:
-        object corpus
-        dict word2id
-        list docs
-        int K
-        int W
-        int n_words
-        int N
-        int V
-        #np.ndarray[INT_t, ndim=1] vocab
-        #np.ndarray[INT_t, ndim=2] n_dk
-        #np.ndarray[INT_t, ndim=2] n_kw
-        np.ndarray vocab
-        np.ndarray n_dk
-        np.ndarray n_kw
-        list n_k
-        list n_d
-        list z
-        #np.ndarray[DOUBLE_t, ndim=1] phi
-        np.ndarray phi
-        double alpha
-        double beta
 
-    def __init__(self, corpus, K, alpha, beta):
-        self.corpus = LineSentence(corpus)
-        self.word2id = {}
-        self.docs = []
-        self.K = K
-        self.W = 0
-        self.n_words = 0
+def init(list D,
+         list Z,
+         np.ndarray[INT_t, ndim=2] n_kw not None,
+         np.ndarray[INT_t, ndim=2] n_dk not None,
+         np.ndarray[INT_t, ndim=1] n_k not None,
+         np.ndarray[INT_t, ndim=1] n_d not None):
 
-        cdef list tmp_vocab = []
+    cdef int N = n_dk.shape[0]
+    cdef int N_d = 0
+    cdef Py_ssize_t w_dn, z_dn, z_new
 
-        logging.info("Reading topic modeling corpus: {:s}".format(corpus))
-        for doc in self.corpus:
-            id_doc = []
-            for word in doc:
-                if word not in self.word2id:
-                    self.word2id[word] = len(tmp_vocab)
-                    tmp_vocab.append(word)
-                id_doc.append(self.word2id[word])
-            self.docs.append(id_doc)
+    for d in range(N):
+        n_d[d] = len(D[d])
+        for n in range(n_d[d]):
+            w_dn = D[d][n]
+            z_dn = Z[d][n]
+            n_kw[z_dn, w_dn] += 1
+            n_dk[d, z_dn] += 1
+            n_k[z_dn] += 1
 
-        self.N = len(self.docs)
-        self.vocab = np.array(tmp_vocab)
-        self.V = len(self.vocab)
+def inference(list D,
+              list Z,
+              int L,
+              np.ndarray[INT_t, ndim=2] n_kw not None,
+              np.ndarray[INT_t, ndim=2] n_dk not None,
+              np.ndarray[INT_t, ndim=1] n_k not None,
+              np.ndarray[INT_t, ndim=1] n_d not None,
+              double alpha,
+              double beta):
+    cdef int N = n_dk.shape[0]
+    cdef int K = n_dk.shape[1]
+    cdef int V = n_kw.shape[1]
+    cdef int i
+    cdef int d
+    cdef int n
+    cdef int w
+    cdef Py_ssize_t w_dn, z_dn
+    cdef double total
+    cdef np.ndarray[DOUBLE_t, ndim=1] p = np.zeros(K)
+    cdef np.ndarray[DOUBLE_t, ndim=1] rands
+    #cdef np.ndarray[INT_t, ndim=1] seq = np.zeros(N, dtype=np.int32)
 
-        self.n_kw = np.zeros((self.K, self.V))  # number of word w assigned to topic k
-        # self.m_k = [0] * self.K
-        self.n_k = [0] * self.K  # total number of words assigned to topic k
-        self.n_dk = np.zeros((self.N, self.K))  # number of words in document d assigned to topic k
-        self.n_d = [0] * self.N  # number of word in document (document length)
+    #for d in range(N):
+    #    seq[d] = d
+    #np.random.shuffle(seq)
 
-        self.phi = np.array([1.0/self.K for _ in range(self.K)])
-        print(self.phi)
-        logging.info("Randomly initializing topic assignments ...")
-        self.z = [[] for _ in range(self.N)]
-        pbar = tqdm(total=len(self.docs))
-        for d, doc in enumerate(self.docs):
-            self.W += len(doc)
-            self.n_d[d] = len(doc)
-            for n, w_dn in enumerate(doc):
-                z_dn = np.random.choice(range(self.K), p=self.phi)
-                self.z[d].append(z_dn)
-                self.n_dk[d, z_dn] += 1
-                self.n_kw[z_dn, w_dn] += 1
-                self.n_k[z_dn] += 1
-            # self.m_k[d] += 1
-            pbar.update(n=1)
+    rands = np.random.rand(L)
+    w = 0
+    for i in range(N):
+        #d = seq[i]
+        d = i
+        for n in range(n_d[d]):
+            z_dn = Z[d][n]
+            w_dn = D[d][n]
 
-        self.alpha = alpha
-        self.beta = beta
+            n_kw[z_dn, w_dn] -= 1
+            n_dk[d, z_dn] -= 1
+            n_k[z_dn] -= 1
 
-        logging.info("Corpus size: {:d} docs, {:d} words".format(self.N, self.V))
-        logging.info("Vocabuary size: {:d}".format(self.V))
-        logging.info("Number of topics: {:d}".format(self.K))
-        logging.info("alpha: {:.3f}".format(self.alpha))
-        logging.info("beta: {:.3f}".format(self.beta))
+            total = 0.0
+            for k in range(K):
+                p[k] = (n_kw[k, w_dn] + beta) / (n_k[k] + V * beta) * (n_dk[d, k] + alpha)
+                total += p[k]
 
-    def inference(self, int n_iter):
-        cdef:
-            int i, d, n, n_d
-        logging.info("Running Gibbs sampling inference: ")
-        logging.info("Number of sampling iterations: {:d}".format(n_iter))
-        #pbar = tqdm(total=n_iter*self.N)
-        start = time.time()
-        for i in range(n_iter):
-            for d in range(self.N):
-                n_d = self.n_d[d]
-                for n in range(n_d):
-                    z_dn = self.sampling(d, n)
-                    self.z[d][n] = z_dn
-                #pbar.update(n=1)
-        elapsed = time.time() - start
-        logging.info("Sampling completed! Elapsed {:.4f} sec".format(elapsed))
+            rands[w] = total * rands[w]
+            total = 0.0
+            z_new = 0
+            for k in range(K):
+                total += p[k]
+                if rands[w] < total:
+                    z_new = k
+                    break
+            
+            Z[d][n] = z_new
+            n_kw[z_new, w_dn] += 1
+            n_dk[d, z_new] += 1
+            n_k[z_new] += 1
 
-    def sampling(self, d, n):
-        z_dn = self.z[d][n]
-        w_dn = self.docs[d][n]
-        self.n_kw[z_dn, w_dn] -= 1
-        self.n_dk[d, z_dn] -= 1
-        self.n_k[z_dn] -= 1
-
-        def p_k(k):
-            return self.n_kw[k, w_dn] + self.beta / \
-                (self.n_k[k] + self.V * self.beta) * (self.n_dk[d, k] + self.alpha)
-
-        self.phi = np.array([p_k(k) for k in range(self.K)])
-        self.phi = self.phi / self.phi.sum()
-        z_dn = np.random.choice(range(self.K), p=self.phi)
-
-        self.n_kw[z_dn, w_dn] += 1
-        self.n_dk[d, z_dn] += 1
-        self.n_k[z_dn] += 1
-
-        return z_dn
-
-    def save(self, prefix, output_dir='./', topn=20):
-        logging.info("Writing output from the last sample ...")
-        logging.info("Number of top topical words: {:d}".format(topn))
-        self.save_top_topical_words(topn)
-
-    def save_top_topical_words(self, topn):
-        for k in range(self.K):
-            topn_indices = matutils.argsort(self.n_kw[k], topn=topn, reverse=True)
-            print(' '.join(self.vocab[topn_indices]))
+            w+=1
