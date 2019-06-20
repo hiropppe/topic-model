@@ -2,7 +2,7 @@ import logging
 import numpy as np
 import time
 
-from . import clda
+from . import lda_c as lda
 
 from gensim import matutils
 from gensim.models.word2vec import LineSentence
@@ -30,13 +30,13 @@ def train(corpus, k, alpha,  beta, n_iter):
     n_k = np.zeros((K), dtype=np.int32)  # total number of words assigned to topic k
     n_d = np.zeros((N), dtype=np.int32)  # number of word in document (document length)
 
-    clda.init(D, Z, n_kw, n_dk, n_k, n_d)
+    lda.init(D, Z, n_kw, n_dk, n_k, n_d)
 
     logging.info("Running Gibbs sampling inference: ")
     logging.info("Number of sampling iterations: {:d}".format(n_iter))
     start = time.time()
     for i in tqdm(range(n_iter)):
-        clda.inference(D, Z, L, n_kw, n_dk, n_k, n_d, alpha, beta)
+        lda.inference(D, Z, L, n_kw, n_dk, n_k, n_d, alpha, beta)
     elapsed = time.time() - start
     logging.info("Sampling completed! Elapsed {:.4f} sec".format(elapsed))
     save(K, W, n_kw, prefix='test')

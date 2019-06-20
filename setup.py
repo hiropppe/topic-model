@@ -11,9 +11,9 @@ from Cython.Build import cythonize
 
 
 extensions = [
-    Extension('model.clda', sources=['model/clda.pyx'], language="c++", extra_compile_args=["-O3", "-mtune=native", "-march=native", "-mfpmath=both"]),
+    Extension('model.lda_c', sources=['model/lda_c.pyx'], language="c++", extra_compile_args=["-O3", "-mtune=native", "-march=native", "-mfpmath=both"]),
     #Extension('model.clda', sources=['model/clda.pyx'], language="c++", extra_compile_args=["-std=c++11", "-O3"]),
-    Extension('model.jtm', sources=['model/jtm.pyx'], language="c++", extra_compile_args=["-std=c++11"]),
+    Extension('model.pltm_c', sources=['model/pltm_c.pyx'], language="c++", extra_compile_args=["-O3", "-mtune=native", "-march=native", "-mfpmath=both"]),
 ]
 
 core.setup(
