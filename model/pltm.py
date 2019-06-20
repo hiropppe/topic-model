@@ -39,7 +39,7 @@ def train(corpus, K, alpha,  beta, n_iter):
         model.inference(D, Z, L, n_tkw, n_tdk, n_tk, n_td, alpha, beta)
     elapsed = time.time() - start
     logging.info("Sampling completed! Elapsed {:.4f} sec".format(elapsed))
-    save(K, W[1], n_tkw[1], prefix='test')
+    save(K, W, n_tkw, prefix='test')
 
 
 def load_corpus(corpus):
@@ -65,7 +65,8 @@ def load_corpus(corpus):
             D[t].append(np.array(id_doc, dtype=np.int32))
         pbar.update(n=1)
 
-    W[t] = np.array(W[t], dtype=np.unicode_)
+    for t in T:
+        W[t] = np.array(W[t], dtype=np.unicode_)
 
     return T, D, W, word2id
 
@@ -85,7 +86,9 @@ def save(K, W, n_kw, prefix, output_dir='./', topn=20):
     save_top_topical_words(K, W, n_kw, topn)
 
 
-def save_top_topical_words(K, W, n_kw, topn):
-    for k in range(K):
-        topn_indices = matutils.argsort(n_kw[k], topn=topn, reverse=True)
-        print(' '.join(W[topn_indices]))
+def save_top_topical_words(K, W, n_tkw, topn):
+    for t in range(len(W)):
+        print("T={:d}".format(t))
+        for k in range(K):
+            topn_indices = matutils.argsort(n_tkw[t][k], topn=topn, reverse=True)
+            print("  K={:d} {:s}".format(k, ' '.join(W[t][topn_indices])))
