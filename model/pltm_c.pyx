@@ -45,7 +45,8 @@ def inference(list D,
               np.ndarray[INT_t, ndim=2] n_tk not None,
               np.ndarray[INT_t, ndim=2] n_td not None,
               double alpha,
-              double beta):
+              #double beta):
+              np.ndarray[DOUBLE_t, ndim=1] beta not None):
 
     cdef np.ndarray[INT_t, ndim=2] n_kw
     cdef int T = n_tdk.shape[0]
@@ -54,6 +55,7 @@ def inference(list D,
     cdef int V
     cdef int t, i, d, n, _t
     cdef int w
+    cdef double beta_t
     cdef Py_ssize_t w_tdn, z_tdn, z_new
     cdef double total, n_dk
     cdef np.ndarray[DOUBLE_t, ndim=1] p = np.zeros(K)
@@ -69,6 +71,7 @@ def inference(list D,
         V = n_kw.shape[1]
         rands = np.random.rand(L[t])
         w = 0
+        beta_t = beta[t]
         for i in range(N):
             #d = seq[i]
             d = i
@@ -84,8 +87,7 @@ def inference(list D,
                     n_dk = 0.0
                     for _t in range(T):
                         n_dk += n_tdk[_t, d, k]
-                    p[k] = (n_kw[k, w_tdn] + beta) / (n_tk[t, k] + V * beta) * (n_dk + alpha)
-                    #p[k] = (n_kw[k, w_tdn] + beta) / (n_tk[t, k] + V * beta) * (n_tdk[t, d, k] + alpha)
+                    p[k] = (n_kw[k, w_tdn] + beta_t) / (n_tk[t, k] + V * beta_t) * (n_dk + alpha)
                     total += p[k]
 
                 rands[w] = total * rands[w]

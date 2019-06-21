@@ -10,7 +10,7 @@ from gensim import matutils
 from tqdm import tqdm
 
 
-def train(corpus, K, alpha,  beta, n_iter):
+def train(corpus, K, alpha, beta, n_iter):
     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
     T, D, W, word2id = load_corpus(corpus)
@@ -20,14 +20,20 @@ def train(corpus, K, alpha,  beta, n_iter):
     N = len(D[0])
     V = [len(W[t]) for t in T]
 
+    if len(beta) == 1:
+        beta = np.array([beta[0] for _ in T])
+
+    if len(beta) != len(T):
+        raise ValueError("number of parameter betas and document types does not match.")
+
     logging.info("Corpus size: {:d} docs, {:s} words".format(N, str(L)))
     logging.info("Vocabuary size: {:s}".format(str(V)))
     logging.info("Number of topics: {:d}".format(K))
     logging.info("alpha: {:.3f}".format(alpha))
-    logging.info("beta: {:.3f}".format(beta))
+    logging.info("beta: {:s}".format(str(beta)))
 
     n_tkw = [np.zeros((K, V[t]), dtype=np.int32) for t in T]  # number of word w assigned to topic k
-    n_tdk = np.zeros((Tn, N, K), dtype=np.int32)  # number of words in document d assigned to topic k
+    n_tdk = np.zeros((Tn, N, K), dtype=np.int32)  # number of wor (shape, dtype, order) o topic k
     n_tk = np.zeros((Tn, K), dtype=np.int32)  # total number of words assigned to topic k
     n_td = np.zeros((Tn, N), dtype=np.int32)  # number of word in document (document length)
 
