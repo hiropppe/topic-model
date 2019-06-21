@@ -21,7 +21,8 @@ def train(corpus, K, alpha, beta, n_iter):
     V = [len(W[t]) for t in T]
 
     if len(beta) == 1:
-        beta = np.array([beta[0] for _ in T])
+        beta = [beta[0] for _ in T]
+    beta = np.array(beta)
 
     if len(beta) != len(T):
         raise ValueError("number of parameter betas and document types does not match.")
