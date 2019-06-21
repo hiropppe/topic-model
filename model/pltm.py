@@ -34,7 +34,7 @@ def train(corpus, K, alpha, beta, n_iter):
     logging.info("beta: {:s}".format(str(beta)))
 
     n_tkw = [np.zeros((K, V[t]), dtype=np.int32) for t in T]  # number of word w assigned to topic k
-    n_tdk = np.zeros((Tn, N, K), dtype=np.int32)  # number of wor (shape, dtype, order) o topic k
+    n_tdk = np.zeros((Tn, N, K), dtype=np.int32)  # number of word in document d assigned to topic k
     n_tk = np.zeros((Tn, K), dtype=np.int32)  # total number of words assigned to topic k
     n_td = np.zeros((Tn, N), dtype=np.int32)  # number of word in document (document length)
 
