@@ -10,6 +10,7 @@ cimport cython
 from libc.stdlib cimport rand, RAND_MAX
 
 ctypedef np.int32_t INT_t
+ctypedef np.int64_t LONG_t
 ctypedef np.float64_t DOUBLE_t
 
 
@@ -31,23 +32,32 @@ def init(list W,
          np.ndarray[INT_t, ndim=1] m_d not None):
 
     cdef int N = n_dk.shape[0]
-    cdef Py_ssize_t w_dn, z_dn, x_dn, y_dn
+    cdef Py_ssize_t w_dn, z_dn, x_dm, y_dm
+    #cdef int w_dn, z_dn, x_dm, y_dm
     cdef int d, n, m
+    #cdef np.ndarray[INT_t, ndim=1] Zd
+    #cdef np.ndarray[INT_t, ndim=1] Yd
     for d in range(N):
         n_d[d] = len(W[d])
+        Zd = Z[d]
         for n in range(n_d[d]):
             w_dn = W[d][n]
             z_dn = Z[d][n]
+            print(d, n)
             n_kw[z_dn, w_dn] += 1
+            print(n_kw[z_dn, w_dn])
             n_dk[d, z_dn] += 1
+            print(n_dk[d, z_dn])
             n_k[z_dn] += 1
+            print(n_k[z_dn])
         m_d[d] = len(X[d])
+        Yd = Y[d]
         for m in range(m_d[d]):
-            x_dn = X[d][n]
-            y_dn = Y[d][n]
-            m_kx[y_dn, x_dn] += 1
-            m_dk[d, y_dn] += 1
-            m_k[y_dn] += 1
+            x_dm = X[d][m]
+            y_dm = Y[d][m]
+            m_kx[y_dm, x_dm] += 1
+            m_dk[d, y_dm] += 1
+            m_k[y_dm] += 1
 
 
 
@@ -75,7 +85,7 @@ def inference(list W,
     cdef int S = n_kw.shape[1]
     cdef int i, d, n, m
     cdef int w, x,
-    cdef Py_ssize_t w_dn, z_dn, z_new, x_dn, y_dn, y_new
+    cdef Py_ssize_t w_dn, z_dn, z_new, x_dm, y_dm, y_new
     cdef double total
     cdef np.ndarray[DOUBLE_t, ndim=1] p = np.zeros(K)
     cdef np.ndarray[DOUBLE_t, ndim=1] rands_w, rands_x
@@ -119,15 +129,15 @@ def inference(list W,
             w+=1
 
         for m in range(m_d[d]):
-            y_dn = Y[d][m]
-            x_dn = X[d][m]
+            y_dm = Y[d][m]
+            x_dm = X[d][m]
 
-            m_kx[y_dn, x_dn] -= 1
-            m_dk[d, y_dn] -= 1
-            m_k[y_dn] -= 1
+            m_kx[y_dm, x_dm] -= 1
+            m_dk[d, y_dm] -= 1
+            m_k[y_dm] -= 1
             total = 0.0
             for k in range(K):
-                p[k] = (m_kx[k, x_dn] + gamma) / (m_k[k] + S * gamma) * (m_dk[d, k] + gamma)
+                p[k] = (m_kx[k, x_dm] + gamma) / (m_k[k] + S * gamma) * (m_dk[d, k] + gamma)
                 total += p[k]
 
             rands_x[x] = total * rands_x[x]
@@ -140,7 +150,7 @@ def inference(list W,
                     break
             
             Y[d][m] = y_new
-            m_kx[y_new, x_dn] += 1
+            m_kx[y_new, x_dm] += 1
             m_dk[d, y_new] += 1
             m_k[y_new] += 1
 
