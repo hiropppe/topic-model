@@ -33,32 +33,23 @@ def init(list W,
 
     cdef int N = n_dk.shape[0]
     cdef Py_ssize_t w_dn, z_dn, x_dm, y_dm
-    #cdef int w_dn, z_dn, x_dm, y_dm
     cdef int d, n, m
-    #cdef np.ndarray[INT_t, ndim=1] Zd
-    #cdef np.ndarray[INT_t, ndim=1] Yd
+
     for d in range(N):
         n_d[d] = len(W[d])
-        Zd = Z[d]
         for n in range(n_d[d]):
             w_dn = W[d][n]
             z_dn = Z[d][n]
-            print(d, n)
             n_kw[z_dn, w_dn] += 1
-            print(n_kw[z_dn, w_dn])
             n_dk[d, z_dn] += 1
-            print(n_dk[d, z_dn])
             n_k[z_dn] += 1
-            print(n_k[z_dn])
         m_d[d] = len(X[d])
-        Yd = Y[d]
         for m in range(m_d[d]):
             x_dm = X[d][m]
             y_dm = Y[d][m]
             m_kx[y_dm, x_dm] += 1
             m_dk[d, y_dm] += 1
             m_k[y_dm] += 1
-
 
 
 def inference(list W,
@@ -82,13 +73,14 @@ def inference(list W,
     cdef int N = n_dk.shape[0]
     cdef int K = n_dk.shape[1]
     cdef int V = n_kw.shape[1]
-    cdef int S = n_kw.shape[1]
+    cdef int S = m_kx.shape[1]
     cdef int i, d, n, m
     cdef int w, x,
     cdef Py_ssize_t w_dn, z_dn, z_new, x_dm, y_dm, y_new
     cdef double total
     cdef np.ndarray[DOUBLE_t, ndim=1] p = np.zeros(K)
     cdef np.ndarray[DOUBLE_t, ndim=1] rands_w, rands_x
+    cdef double epsilon = 1e-07
 
     rands_w = np.random.rand(Lw)
     rands_x = np.random.rand(Lx)
@@ -109,7 +101,7 @@ def inference(list W,
                 z_new = z_dn
             else:
                 for k in range(K):
-                    p[k] = (n_kw[k, w_dn] + beta) / (n_k[k] + V * beta) * (n_dk[d, k] + alpha) * pow((n_dk[d, k]+1)/n_dk[d, k], m_dk[d, k])
+                    p[k] = (n_kw[k, w_dn] + beta) / (n_k[k] + V * beta) * (n_dk[d, k] + alpha) * pow((n_dk[d, k] + 1)/(n_dk[d, k] + epsilon), m_dk[d, k])
                     total += p[k]
 
                 rands_w[w] = total * rands_w[w]
@@ -137,7 +129,7 @@ def inference(list W,
             m_k[y_dm] -= 1
             total = 0.0
             for k in range(K):
-                p[k] = (m_kx[k, x_dm] + gamma) / (m_k[k] + S * gamma) * (m_dk[d, k] + gamma)
+                p[k] = (m_kx[k, x_dm] + gamma) / (m_k[k] + S * gamma) * n_dk[d, k]
                 total += p[k]
 
             rands_x[x] = total * rands_x[x]

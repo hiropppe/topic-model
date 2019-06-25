@@ -51,7 +51,7 @@ def train(corpus, K, alpha, beta, n_iter):
 
 def load_corpus(corpus):
     logging.info("Reading topic modeling corpus: {:s}".format(corpus))
-    df = pd.read_csv(corpus)[["lang", "ctext"]]
+    df = pd.read_csv(corpus)
     df.dropna(inplace=True)
 
     T = list(range(len(df.columns)))

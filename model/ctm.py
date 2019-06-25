@@ -9,7 +9,6 @@ from . import ctm_c as model
 from gensim import matutils
 from tqdm import tqdm
 
-np.random.seed(123)
 
 def train(corpus, K, alpha, beta, gamma, n_iter):
     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
@@ -35,7 +34,7 @@ def train(corpus, K, alpha, beta, gamma, n_iter):
     m_dk = np.zeros((N, K), dtype=np.int32)  # number of aux word in document d assigned to topic k
     m_k = np.zeros((K), dtype=np.int32)  # total number of aux words assigned to topic k
     m_d = np.zeros((N), dtype=np.int32)  # number of aux word in document (document length)
-    #import pdb; pdb.set_trace()
+
     model.init(W, X, Z, Y, n_kw, m_kx, n_dk, m_dk, n_k, m_k, n_d, m_d)
     logging.info("Running Gibbs sampling inference: ")
     logging.info("Number of sampling iterations: {:d}".format(n_iter))
@@ -49,7 +48,7 @@ def train(corpus, K, alpha, beta, gamma, n_iter):
 
 def load_corpus(corpus):
     logging.info("Reading topic modeling corpus: {:s}".format(corpus))
-    df = pd.read_csv(corpus)[["ctext", "lang"]]
+    df = pd.read_csv(corpus)
     df.dropna(inplace=True)
 
     W, X, V, S = [], [], [], []
@@ -60,14 +59,14 @@ def load_corpus(corpus):
         id_doc, id_aux = [], []
         for w in values[0].split():
             if w not in word2id:
-                word2id[w] = len(W)
+                word2id[w] = len(V)
                 V.append(w)
             id_doc.append(word2id[w])
         W.append(np.array(id_doc, dtype=np.int32))
 
         for x in values[1].split():
             if x not in aux2id:
-                aux2id[x] = len(X)
+                aux2id[x] = len(S)
                 S.append(x)
             id_aux.append(aux2id[x])
         X.append(np.array(id_aux, dtype=np.int32))
@@ -77,6 +76,15 @@ def load_corpus(corpus):
     S = np.array(S, dtype=np.unicode_)
 
     return W, X, V, S
+
+
+def assign_random_topic_(W, K):
+    logging.info("Randomly initializing topic assignments ...")
+    Z = []
+    for w in W:
+        #Z.append(np.random.randint(K, size=len(w), dtype=np.int32).tolist())
+        Z.append(np.random.randint(K, size=len(w)))
+    return Z
 
 
 def assign_random_topic(W, X, K):
@@ -99,6 +107,5 @@ def save_top_topical_words(K, V, S, n_kw, m_kx, topn):
         topn_vocab_indices = matutils.argsort(n_kw[k], topn=topn, reverse=True)
         topn_aux_indices = matutils.argsort(m_kx[k], topn=topn, reverse=True)
         print("K={:d}".format(k))
-        print("  word: {:s}".format(k, ' '.join(V[topn_vocab_indices])))
-        print("  aux: {:s}".format(k, ' '.join(S[topn_aux_indices])))
-
+        print("  word: {:s}".format(' '.join(V[topn_vocab_indices])))
+        print("  aux: {:s}".format(' '.join(S[topn_aux_indices])))
