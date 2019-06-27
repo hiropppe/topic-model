@@ -6,14 +6,14 @@ from setuptools import setup, find_packages
 
 from distutils import core
 from distutils.extension import Extension
-from Cython.Distutils import build_ext
 from Cython.Build import cythonize
 
 
 extensions = [
-    Extension('model.lda_c',  sources=['model/lda_c.pyx'],  language="c++", extra_compile_args=["-std=c++11", "-O3", "-mtune=native", "-march=native", "-mfpmath=both"]),
-    Extension('model.pltm_c', sources=['model/pltm_c.pyx'], language="c++", extra_compile_args=["-std=c++11", "-O3", "-mtune=native", "-march=native", "-mfpmath=both"]),
-    Extension('model.ctm_c',  sources=['model/ctm_c.pyx'],  language="c++", extra_compile_args=["-std=c++11", "-O3", "-mtune=native", "-march=native", "-mfpmath=both"]),
+    Extension('model.lda_c',   sources=['model/lda_c.pyx'],   language="c++", extra_compile_args=["-std=c++11", "-O3", "-mtune=native", "-march=native", "-mfpmath=both"]),
+    Extension('model.pltm_c',  sources=['model/pltm_c.pyx'],  language="c++", extra_compile_args=["-std=c++11", "-O3", "-mtune=native", "-march=native", "-mfpmath=both"]),
+    Extension('model.ctm_c',   sources=['model/ctm_c.pyx'],   language="c++", extra_compile_args=["-std=c++11", "-O3", "-mtune=native", "-march=native", "-mfpmath=both"]),
+    Extension('model.nctm_c',  sources=['model/nctm_c.pyx'],  language="c++", extra_compile_args=["-std=c++11", "-O3", "-mtune=native", "-march=native", "-mfpmath=both"]),
 ]
 
 core.setup(
