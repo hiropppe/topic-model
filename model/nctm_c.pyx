@@ -7,12 +7,8 @@ import numpy as np
 cimport numpy as np
 cimport cython
 
-from libc.stdlib cimport rand, RAND_MAX
-
 ctypedef np.int32_t INT_t
-ctypedef np.int64_t LONG_t
 ctypedef np.float64_t DOUBLE_t
-
 
 cdef extern from "math.h":
     double pow(double x, double y)

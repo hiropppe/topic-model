@@ -51,7 +51,7 @@ def train(corpus, K, alpha, beta, gamma, eta, n_iter):
 
 def load_corpus(corpus):
     logging.info("Reading topic modeling corpus: {:s}".format(corpus))
-    df = pd.read_csv(corpus)
+    df = pd.read_csv(corpus, header=None)
     df.dropna(inplace=True)
 
     W, X, V, S = [], [], [], []

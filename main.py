@@ -16,7 +16,7 @@ from model.nctm import train as nctm
 @click.option("--alpha", "-a", default=0.1)
 @click.option("--beta", "-b", default=(0.01,), type=float, multiple=True)
 @click.option("--gamma", "-g", default=0.01)
-@click.option("--eta", "-e", default=0.01)
+@click.option("--eta", "-e", default=1.0)
 @click.option("--n_iter", "-i", default=1000)
 @click.option("--py", is_flag=True,  default=False)
 def main(corpus, model, k, alpha,  beta, gamma, eta, n_iter, py):
