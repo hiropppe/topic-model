@@ -92,7 +92,8 @@ def inference(list W,
     cdef int iw, ixy, ixr
     cdef Py_ssize_t w_dn, z_dn, z_new, x_dm, y_dm, y_new, r_dm, r_new
     cdef double total
-    cdef np.ndarray[DOUBLE_t, ndim=1] p = np.zeros(K)
+    cdef np.ndarray[DOUBLE_t, ndim=1] p_k = np.zeros(K)
+    cdef np.ndarray[DOUBLE_t, ndim=1] p_r = np.zeros(2)
     cdef np.ndarray[DOUBLE_t, ndim=1] rands_w, rands_xy, rands_xr
     cdef double epsilon = 1e-07
 
@@ -115,14 +116,14 @@ def inference(list W,
                 z_new = z_dn
             else:
                 for k in range(K):
-                    p[k] = (n_kw[k, w_dn] + beta) / (n_k[k] + V * beta) * (n_dk[d, k] + alpha) * pow((n_dk[d, k] + 1)/(n_dk[d, k] + epsilon), m_dk[d, k])
-                    total += p[k]
+                    p_k[k] = (n_kw[k, w_dn] + beta) / (n_k[k] + V * beta) * (n_dk[d, k] + alpha) * pow((n_dk[d, k] + 1)/(n_dk[d, k] + epsilon), m_dk[d, k])
+                    total += p_k[k]
 
                 rands_w[iw] = total * rands_w[iw]
                 total = 0.0
                 z_new = 0
                 for k in range(K):
-                    total += p[k]
+                    total += p_k[k]
                     if rands_w[iw] < total:
                         z_new = k
                         break
@@ -145,14 +146,14 @@ def inference(list W,
                 m_k[y_dm] -= 1
                 total = 0.0
                 for k in range(K):
-                    p[k] = (m_kx[k, x_dm] + gamma) / (m_k[k] + S * gamma) * n_dk[d, k]
-                    total += p[k]
+                    p_k[k] = (m_kx[k, x_dm] + gamma) / (m_k[k] + S * gamma) * n_dk[d, k]
+                    total += p_k[k]
 
                 rands_xy[ixy] = total * rands_xy[ixy]
                 total = 0.0
                 y_new = 0
                 for k in range(K):
-                    total += p[k]
+                    total += p_k[k]
                     if rands_xy[ixy] < total:
                         y_new = k
                         break
@@ -168,33 +169,35 @@ def inference(list W,
             y_dm = Y[d][m]
             x_dm = X[d][m]
             r_dm = R[d][m]
-
             m_rx[r_dm, x_dm] -= 1
             m_dr[d, r_dm] -= 1
             m_r[r_dm] -= 1
+
             if r_dm == 1:
                 m_kx[y_dm, x_dm] -= 1
+                m_dk[d, y_dm] -= 1
                 m_k[y_dm] -= 1
-
-            p[0] = (m_rx[r, x_dm] + gamma) / (m_r[r] + S * gamma) * (m_dr[d, 0] + eta)
-            p[1] = (m_kx[k, x_dm] + gamma) / (m_k[k] + S * gamma) * (m_dr[d, 1] + eta)
-            total = p[0] + p[1]
+            
+            p_r[0] = (m_rx[0, x_dm] + gamma) / (m_r[0] + S * gamma) * (m_dr[d, 0] + eta)
+            p_r[1] = (m_kx[y_dm, x_dm] + gamma) / (m_k[y_dm] + S * gamma) * (m_dr[d, 1] + eta)
+            total = p_r[0] + p_r[1]
 
             rands_xr[ixr] = total * rands_xr[ixr]
             total = 0.0
             r_new = 0
             for r in range(2):
-                total += p[r]
+                total += p_r[r]
                 if rands_xr[ixr] < total:
-                    r_new = k
+                    r_new = r
                     break
-
+            
             R[d][m] = r_new
             m_rx[r_new, x_dm] += 1
             m_dr[d, r_new] += 1
             m_r[r_new] += 1
             if r_new == 1:
                 m_kx[y_dm, x_dm] += 1
+                m_dk[d, y_dm] += 1
                 m_k[y_dm] += 1
 
             ixr+=1

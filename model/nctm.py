@@ -4,7 +4,7 @@ import time
 
 import pandas as pd
 
-from . import ctm_c as model
+from . import nctm_c as model
 
 from gensim import matutils
 from tqdm import tqdm

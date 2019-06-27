@@ -11,7 +11,7 @@ from model.nctm import train as nctm
 
 @click.command()
 @click.argument("corpus")
-@click.option("--model", "-m", default="lda", type=click.Choice(["lda", "pltm", "ctm"]))
+@click.option("--model", "-m", default="lda", type=click.Choice(["lda", "pltm", "ctm", "nctm"]))
 @click.option("--k", "-k", default=20)
 @click.option("--alpha", "-a", default=0.1)
 @click.option("--beta", "-b", default=(0.01,), type=float, multiple=True)
