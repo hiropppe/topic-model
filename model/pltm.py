@@ -5,12 +5,13 @@ import time
 import pandas as pd
 
 from . import pltm_c as model
+from . import util
 
 from gensim import matutils
 from tqdm import tqdm
 
 
-def train(corpus, K, alpha, beta, n_iter):
+def train(corpus, K, alpha, beta, n_iter, report_every=100):
     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
     T, D, W, word2id = load_corpus(corpus)
@@ -42,8 +43,11 @@ def train(corpus, K, alpha, beta, n_iter):
     logging.info("Running Gibbs sampling inference: ")
     logging.info("Number of sampling iterations: {:d}".format(n_iter))
     start = time.time()
+    pbar = tqdm(range(n_iter))
     for i in tqdm(range(n_iter)):
         model.inference(D, Z, L, n_tkw, n_tdk, n_tk, n_td, alpha, beta)
+        if i % report_every == 0:
+            pbar.set_postfix(ppl="{:.3f}".format(util.ppl(L[0], n_tkw[0], n_tk[0], n_tdk[0], n_td[0], alpha, beta[0])))
     elapsed = time.time() - start
     logging.info("Sampling completed! Elapsed {:.4f} sec".format(elapsed))
     save(K, W, n_tkw, prefix='test')

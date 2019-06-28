@@ -10,7 +10,7 @@ from gensim.models.word2vec import LineSentence
 from tqdm import tqdm
 
 
-def train(corpus, k, alpha,  beta, n_iter):
+def train(corpus, k, alpha, beta, n_iter, report_every=100):
     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
     D, W, word2id = load_corpus(corpus)
@@ -39,7 +39,7 @@ def train(corpus, k, alpha,  beta, n_iter):
     pbar = tqdm(range(n_iter))
     for i in pbar:
         lda.inference(D, Z, L, n_kw, n_dk, n_k, n_d, alpha, beta)
-        if i % 10 == 0:
+        if i % report_every == 0:
             pbar.set_postfix(ppl="{:.3f}".format(util.ppl(L, n_kw, n_k, n_dk, n_d, alpha, beta)))
     elapsed = time.time() - start
     logging.info("Sampling completed! Elapsed {:.4f} sec".format(elapsed))

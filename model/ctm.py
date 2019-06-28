@@ -5,12 +5,13 @@ import time
 import pandas as pd
 
 from . import ctm_c as model
+from . import util
 
 from gensim import matutils
 from tqdm import tqdm
 
 
-def train(corpus, K, alpha, beta, gamma, n_iter):
+def train(corpus, K, alpha, beta, gamma, n_iter, report_every=100):
     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
     W, X, V, S = load_corpus(corpus)
@@ -39,8 +40,11 @@ def train(corpus, K, alpha, beta, gamma, n_iter):
     logging.info("Running Gibbs sampling inference: ")
     logging.info("Number of sampling iterations: {:d}".format(n_iter))
     start = time.time()
+    pbar = tqdm(range(n_iter))
     for i in tqdm(range(n_iter)):
         model.inference(W, X, Z, Y, Lw, Lx, n_kw, m_kx, n_dk, m_dk, n_k, m_k, n_d, m_d, alpha, beta, gamma)
+        if i % report_every == 0:
+            pbar.set_postfix(ppl="{:.3f}".format(util.ppl(Lw, n_kw, n_k, n_dk, n_d, alpha, beta)))
     elapsed = time.time() - start
     logging.info("Sampling completed! Elapsed {:.4f} sec".format(elapsed))
     save(K, V, S, n_kw, m_kx, prefix='test')
