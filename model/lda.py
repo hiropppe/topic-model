@@ -7,10 +7,11 @@ from . import util
 
 from gensim import matutils
 from gensim.models.word2vec import LineSentence
+from pathlib import Path
 from tqdm import tqdm
 
 
-def train(corpus, k, alpha, beta, n_iter, report_every=100):
+def train(corpus, k, alpha, beta, n_iter, report_every=100, prefix="lda", output_dir="."):
     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
     D, W, word2id = load_corpus(corpus)
@@ -42,8 +43,9 @@ def train(corpus, k, alpha, beta, n_iter, report_every=100):
         if i % report_every == 0:
             pbar.set_postfix(ppl="{:.3f}".format(util.ppl(L, n_kw, n_k, n_dk, n_d, alpha, beta)))
     elapsed = time.time() - start
-    logging.info("Sampling completed! Elapsed {:.4f} sec".format(elapsed))
-    save(K, W, n_kw, prefix='test')
+    logging.info("Sampling completed! Elapsed {:.4f} sec ppl={:.3f}".format(
+        elapsed, util.ppl(L, n_kw, n_k, n_dk, n_d, alpha, beta)))
+    save(W, Z, n_kw, n_dk, n_k, n_d, alpha, beta, prefix=prefix, output_dir=output_dir)
 
 
 def load_corpus(corpus):
@@ -72,13 +74,77 @@ def assign_random_topic(D, K):
     return Z
 
 
-def save(K, W, n_kw, prefix, output_dir='./', topn=20):
+def save(W, Z, n_kw, n_dk, n_k, n_d, alpha, beta, prefix, output_dir='.', topn=20):
     logging.info("Writing output from the last sample ...")
     logging.info("Number of top topical words: {:d}".format(topn))
-    save_top_topical_words(K, W, n_kw, topn)
+
+    output_dir = Path(output_dir)
+    save_topic(W, n_kw, n_k, beta, topn, prefix, output_dir)
+    save_informative_word(W, n_kw, n_k, beta, topn, prefix, output_dir)
+    save_z(Z, prefix, output_dir)
+    save_theta(n_dk, n_d, alpha, prefix, output_dir)
+    save_phi(n_kw, n_k, beta, prefix, output_dir)
 
 
-def save_top_topical_words(K, W, n_kw, topn):
-    for k in range(K):
-        topn_indices = matutils.argsort(n_kw[k], topn=topn, reverse=True)
-        print(' '.join(W[topn_indices]))
+def save_topic(W, n_kw, n_k, beta, topn, prefix, output_dir):
+    output_path = output_dir / (prefix + ".topic")
+    K = len(n_kw)
+    V = n_kw.shape[1]
+    with open(output_path.as_posix(), "w") as fo:
+        for k in range(K):
+            topn_indices = matutils.argsort(n_kw[k], topn=topn, reverse=True)
+            print(" ".join(["{:s}:{:.4f}".format(W[w], ((n_kw[k, w] + beta) /
+                                                        (n_k[k] + V * beta))) for w in topn_indices]), file=fo)
+
+
+def save_informative_word(W, n_kw, n_k, beta, topn, prefix, output_dir):
+    output_path = output_dir / (prefix + ".jlh")
+    K = len(n_kw)
+    V = n_kw.shape[1]
+    vocab, word2id = [], {}
+    n_w = {}
+    topn_indices = []
+    with open(output_path.as_posix(), "w") as fo:
+        for k in range(K):
+            for w in matutils.argsort(n_kw[k], topn=topn, reverse=True):
+                if w not in vocab:
+                    word2id[w] = len(vocab)
+                    vocab.append(w)
+
+        for w in vocab:
+            n_w[w] = n_kw[:, w].sum()
+
+        scores = np.zeros((K, len(vocab)), dtype=np.float32)
+        for k in range(K):
+            for w in topn_indices[k]:
+                freq = n_kw[k, w]/n_w[w]
+                phi = (n_kw[k, w] + beta)/(n_k[k] + V * beta)
+                score = (freq-phi) * (freq/phi)
+                scores[k, word2id[w]] = score
+
+
+def save_theta(n_dk, n_d, alpha, prefix, output_dir):
+    output_path = output_dir / (prefix + ".theta")
+    N = len(n_dk)
+    K = n_dk.shape[1]
+    with open(output_path.as_posix(), "w") as fo:
+        for d in range(N):
+            print(" ".join(["{:.4f}".format((n_dk[d, k] + alpha)/(n_d[d] + K * alpha))
+                            for k in range(K)]), file=fo)
+
+
+def save_z(Z, prefix, output_dir):
+    output_path = output_dir / (prefix + ".z")
+    with open(output_path.as_posix(), "w") as fo:
+        for d in range(len(Z)):
+            print(" ".join(Z[d].astype(np.unicode_)), file=fo)
+
+
+def save_phi(n_kw, n_k, beta, prefix, output_dir):
+    output_path = output_dir / (prefix + ".phi")
+    K = len(n_kw)
+    V = n_kw.shape[1]
+    with open(output_path.as_posix(), "w") as fo:
+        for k in range(K):
+            print(" ".join(["{:.4f}".format((n_kw[k, w] + beta)/(n_k[k] + V * beta))
+                            for w in range(V)]), file=fo)

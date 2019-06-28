@@ -44,12 +44,12 @@ def train(corpus, K, alpha, beta, n_iter, report_every=100):
     logging.info("Number of sampling iterations: {:d}".format(n_iter))
     start = time.time()
     pbar = tqdm(range(n_iter))
-    for i in tqdm(range(n_iter)):
+    for i in pbar:
         model.inference(D, Z, L, n_tkw, n_tdk, n_tk, n_td, alpha, beta)
         if i % report_every == 0:
             pbar.set_postfix(ppl="{:.3f}".format(util.ppl(L[0], n_tkw[0], n_tk[0], n_tdk[0], n_td[0], alpha, beta[0])))
     elapsed = time.time() - start
-    logging.info("Sampling completed! Elapsed {:.4f} sec".format(elapsed))
+    logging.info("Sampling completed! Elapsed {:.4f} sec ppl={:.3f}".format(elapsed, util.ppl(L[0], n_tkw[0], n_tk[0], n_tdk[0], n_td[0], alpha, beta[0])))
     save(K, W, n_tkw, prefix='test')
 
 
