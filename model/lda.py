@@ -80,10 +80,10 @@ def save(W, Z, n_kw, n_dk, n_k, n_d, alpha, beta, prefix, output_dir='.', topn=2
 
     output_dir = Path(output_dir)
     save_topic(W, n_kw, n_k, beta, topn, prefix, output_dir)
-    save_informative_word(W, n_kw, n_k, beta, topn, prefix, output_dir)
     save_z(Z, prefix, output_dir)
     save_theta(n_dk, n_d, alpha, prefix, output_dir)
     save_phi(n_kw, n_k, beta, prefix, output_dir)
+    save_informative_word(W, n_kw, n_k, beta, topn, prefix, output_dir)
 
 
 def save_topic(W, n_kw, n_k, beta, topn, prefix, output_dir):
@@ -93,7 +93,7 @@ def save_topic(W, n_kw, n_k, beta, topn, prefix, output_dir):
     with open(output_path.as_posix(), "w") as fo:
         for k in range(K):
             topn_indices = matutils.argsort(n_kw[k], topn=topn, reverse=True)
-            print(" ".join(["{:s}:{:.4f}".format(W[w], ((n_kw[k, w] + beta) /
+            print(" ".join(["{:s}*{:.4f}".format(W[w], ((n_kw[k, w] + beta) /
                                                         (n_k[k] + V * beta))) for w in topn_indices]), file=fo)
 
 
@@ -101,26 +101,20 @@ def save_informative_word(W, n_kw, n_k, beta, topn, prefix, output_dir):
     output_path = output_dir / (prefix + ".jlh")
     K = len(n_kw)
     V = n_kw.shape[1]
-    vocab, word2id = [], {}
     n_w = {}
-    topn_indices = []
     with open(output_path.as_posix(), "w") as fo:
-        for k in range(K):
-            for w in matutils.argsort(n_kw[k], topn=topn, reverse=True):
-                if w not in vocab:
-                    word2id[w] = len(vocab)
-                    vocab.append(w)
-
-        for w in vocab:
+        for w in range(V):
             n_w[w] = n_kw[:, w].sum()
 
-        scores = np.zeros((K, len(vocab)), dtype=np.float32)
+        jlh_scores = np.zeros((K, V), dtype=np.float32)
         for k in range(K):
-            for w in topn_indices[k]:
-                freq = n_kw[k, w]/n_w[w]
-                phi = (n_kw[k, w] + beta)/(n_k[k] + V * beta)
-                score = (freq-phi) * (freq/phi)
-                scores[k, word2id[w]] = score
+            for w in range(V):
+                glo = (n_kw[k, w] + beta)/(n_w[w] + V * beta)
+                loc = (n_kw[k, w] + beta)/(n_k[k] + V * beta)
+                jlh_scores[k, w] = (glo-loc) * (glo/loc)
+            topn_informative_words = matutils.argsort(jlh_scores[k], topn=topn, reverse=True)
+            print(" ".join(["{:s}*{:.4f}".format(W[w], jlh_scores[k, w])
+                            for w in topn_informative_words]), file=fo)
 
 
 def save_theta(n_dk, n_d, alpha, prefix, output_dir):
