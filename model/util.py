@@ -39,3 +39,28 @@ def coherence(wv, W, n_kw, topn=20):
             if w_x in wv and w_y in wv:
                 scores.append(wv.similarity(w_x, w_y))
     return np.mean(scores)
+
+
+def pmi_coherence(M, word2id, N, W, n_kw, topn=20):
+    K = len(n_kw)
+
+    def pmi(x, y, eps=1e-08):
+        ix = word2id[x]
+        iy = word2id[y]
+        X = M[:, ix].sum()
+        Y = M[:, iy].sum()
+        XY = M[ix, iy]
+        pmi = np.log2(XY * N / (X * Y + eps))
+        # pmi = max(0, pmi)
+        return pmi
+
+    scores = []
+    for k in range(K):
+        topn_indices = matutils.argsort(n_kw[k], topn=topn, reverse=True)
+        for x, y in combinations(topn_indices, 2):
+            w_x, w_y = W[x], W[y]
+            if w_x in word2id and w_y in word2id:
+                scores.append(pmi(w_x, w_y))
+    return np.mean(scores)
+
+
