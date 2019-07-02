@@ -97,26 +97,6 @@ def save_topic(W, n_kw, n_k, beta, topn, prefix, output_dir):
                                                         (n_k[k] + V * beta))) for w in topn_indices]), file=fo)
 
 
-def save_informative_word(W, n_kw, n_k, beta, topn, prefix, output_dir):
-    output_path = output_dir / (prefix + ".jlh")
-    K = len(n_kw)
-    V = n_kw.shape[1]
-    n_w = {}
-    with open(output_path.as_posix(), "w") as fo:
-        for w in range(V):
-            n_w[w] = n_kw[:, w].sum()
-
-        jlh_scores = np.zeros((K, V), dtype=np.float32)
-        for k in range(K):
-            for w in range(V):
-                glo = (n_kw[k, w] + beta)/(n_w[w] + V * beta)
-                loc = (n_kw[k, w] + beta)/(n_k[k] + V * beta)
-                jlh_scores[k, w] = (glo-loc) * (glo/loc)
-            topn_informative_words = matutils.argsort(jlh_scores[k], topn=topn, reverse=True)
-            print(" ".join(["{:s}*{:.4f}".format(W[w], jlh_scores[k, w])
-                            for w in topn_informative_words]), file=fo)
-
-
 def save_theta(n_dk, n_d, alpha, prefix, output_dir):
     output_path = output_dir / (prefix + ".theta")
     N = len(n_dk)
@@ -142,3 +122,23 @@ def save_phi(n_kw, n_k, beta, prefix, output_dir):
         for k in range(K):
             print(" ".join(["{:.4f}".format((n_kw[k, w] + beta)/(n_k[k] + V * beta))
                             for w in range(V)]), file=fo)
+
+
+def save_informative_word(W, n_kw, n_k, beta, topn, prefix, output_dir):
+    output_path = output_dir / (prefix + ".jlh")
+    K = len(n_kw)
+    V = n_kw.shape[1]
+    n_w = {}
+    with open(output_path.as_posix(), "w") as fo:
+        for w in range(V):
+            n_w[w] = n_kw[:, w].sum()
+
+        jlh_scores = np.zeros((K, V), dtype=np.float32)
+        for k in range(K):
+            for w in range(V):
+                glo = (n_kw[k, w] + beta)/(n_w[w] + V * beta)
+                loc = (n_kw[k, w] + beta)/(n_k[k] + V * beta)
+                jlh_scores[k, w] = (glo-loc) * (glo/loc)
+            topn_informative_words = matutils.argsort(jlh_scores[k], topn=topn, reverse=True)
+            print(" ".join(["{:s}*{:.4f}".format(W[w], jlh_scores[k, w])
+                            for w in topn_informative_words]), file=fo)

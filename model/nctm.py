@@ -8,10 +8,11 @@ from . import nctm_c as model
 from . import util
 
 from gensim import matutils
+from pathlib import Path
 from tqdm import tqdm
 
 
-def train(corpus, K, alpha, beta, gamma, eta, n_iter, report_every=100):
+def train(corpus, K, alpha, beta, gamma, eta, n_iter, report_every=100, prefix="nctm", output_dir="."):
     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
     W, X, V, S = load_corpus(corpus)
@@ -45,12 +46,14 @@ def train(corpus, K, alpha, beta, gamma, eta, n_iter, report_every=100):
     start = time.time()
     pbar = tqdm(range(n_iter))
     for i in pbar:
-        model.inference(W, X, Z, Y, R, Lw, Lx, n_kw, m_kx, m_rx, n_dk, m_dk, m_dr, n_k, m_k, m_r, n_d, m_d, alpha, beta, gamma, eta)
+        model.inference(W, X, Z, Y, R, Lw, Lx, n_kw, m_kx, m_rx, n_dk, m_dk,
+                        m_dr, n_k, m_k, m_r, n_d, m_d, alpha, beta, gamma, eta)
         if i % report_every == 0:
             pbar.set_postfix(ppl="{:.3f}".format(util.ppl(Lw, n_kw, n_k, n_dk, n_d, alpha, beta)))
     elapsed = time.time() - start
-    logging.info("Sampling completed! Elapsed {:.4f} sec ppl={:.3f}".format(elapsed, util.ppl(Lw, n_kw, n_k, n_dk, n_d, alpha, beta)))
-    save(K, V, S, n_kw, m_kx, prefix='test')
+    logging.info("Sampling completed! Elapsed {:.4f} sec ppl={:.3f}".format(
+        elapsed, util.ppl(Lw, n_kw, n_k, n_dk, n_d, alpha, beta)))
+    save(Z, V, S, n_kw, n_dk, n_k, n_d, m_kx, alpha, beta, prefix=prefix, output_dir=output_dir)
 
 
 def load_corpus(corpus):
@@ -95,16 +98,74 @@ def assign_random_topic(W, X, K):
     return Z, Y, R
 
 
-def save(K, V, S, n_kw, m_kx, prefix, output_dir='./', topn=20):
+def save(Z, V, S, n_kw, n_dk, n_k, n_d, m_kx, alpha, beta, prefix, output_dir='./', topn=20):
     logging.info("Writing output from the last sample ...")
     logging.info("Number of top topical words: {:d}".format(topn))
-    save_top_topical_words(K, V, S, n_kw, m_kx, topn)
+
+    output_dir = Path(output_dir)
+    save_topic(V, S, n_kw, n_k, m_kx, beta, topn, prefix, output_dir)
+    save_z(Z, prefix, output_dir)
+    save_theta(n_dk, n_d, alpha, prefix, output_dir)
+    save_phi(n_kw, n_k, beta, prefix, output_dir)
+    save_informative_word(V, n_kw, n_k, beta, topn, prefix, output_dir)
 
 
-def save_top_topical_words(K, V, S, n_kw, m_kx, topn):
-    for k in range(K):
-        topn_vocab_indices = matutils.argsort(n_kw[k], topn=topn, reverse=True)
-        topn_aux_indices = matutils.argsort(m_kx[k], topn=topn, reverse=True)
-        print("K={:d}".format(k))
-        print("  word: {:s}".format(' '.join(V[topn_vocab_indices])))
-        print("  aux: {:s}".format(' '.join(S[topn_aux_indices])))
+def save_topic(V, S, n_kw, n_k, m_kx, beta, topn, prefix, output_dir):
+    output_path = output_dir / (prefix + ".topic")
+    K = len(n_kw)
+    Lv = n_kw.shape[1]
+    with open(output_path.__str__(), "w") as fo:
+        for k in range(K):
+            topn_indices = matutils.argsort(n_kw[k], topn=topn, reverse=True)
+            topn_aux_indices = matutils.argsort(m_kx[k], topn=topn, reverse=True)
+            print("K={:d}".format(k), file=fo)
+            print("  word: {:s}".format(" ".join(["{:s}*{:.4f}".format(V[w], ((n_kw[k, w] + beta) /
+                                                                              (n_k[k] + Lv * beta))) for w in topn_indices])), file=fo)
+            print("  aux: {:s}".format(' '.join(S[topn_aux_indices])), file=fo)
+
+
+def save_z(Z, prefix, output_dir):
+    output_path = output_dir / (prefix + ".z")
+    with open(output_path.as_posix(), "w") as fo:
+        for d in range(len(Z)):
+            print(" ".join(Z[d].astype(np.unicode_)), file=fo)
+
+
+def save_theta(n_dk, n_d, alpha, prefix, output_dir):
+    output_path = output_dir / (prefix + ".theta")
+    N = len(n_dk)
+    K = n_dk.shape[1]
+    with open(output_path.as_posix(), "w") as fo:
+        for d in range(N):
+            print(" ".join(["{:.4f}".format((n_dk[d, k] + alpha)/(n_d[d] + K * alpha))
+                            for k in range(K)]), file=fo)
+
+
+def save_phi(n_kw, n_k, beta, prefix, output_dir):
+    output_path = output_dir / (prefix + ".phi")
+    K = len(n_kw)
+    V = n_kw.shape[1]
+    with open(output_path.as_posix(), "w") as fo:
+        for k in range(K):
+            print(" ".join(["{:.4f}".format((n_kw[k, w] + beta)/(n_k[k] + V * beta))
+                            for w in range(V)]), file=fo)
+
+
+def save_informative_word(V, n_kw, n_k, beta, topn, prefix, output_dir):
+    output_path = output_dir / (prefix + ".jlh")
+    K = len(n_kw)
+    Lv = n_kw.shape[1]
+    n_w = {}
+    with open(output_path.as_posix(), "w") as fo:
+        for w in range(Lv):
+            n_w[w] = n_kw[:, w].sum()
+
+        jlh_scores = np.zeros((K, Lv), dtype=np.float32)
+        for k in range(K):
+            for w in range(Lv):
+                glo = (n_kw[k, w] + beta)/(n_w[w] + Lv * beta)
+                loc = (n_kw[k, w] + beta)/(n_k[k] + Lv * beta)
+                jlh_scores[k, w] = (glo-loc) * (glo/loc)
+            topn_informative_words = matutils.argsort(jlh_scores[k], topn=topn, reverse=True)
+            print(" ".join(["{:s}*{:.4f}".format(V[w], jlh_scores[k, w])
+                            for w in topn_informative_words]), file=fo)
