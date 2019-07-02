@@ -18,8 +18,9 @@ from model.nctm import train as nctm
 @click.option("--gamma", "-g", default=0.01)
 @click.option("--eta", "-e", default=1.0)
 @click.option("--n_iter", "-i", default=1000)
+@click.option("--report_every", default=100)
 @click.option("--py", is_flag=True,  default=False)
-def main(corpus, model, k, alpha,  beta, gamma, eta, n_iter, py):
+def main(corpus, model, k, alpha,  beta, gamma, eta, n_iter, report_every, py):
     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
     if model == "lda":
         if py:
@@ -27,15 +28,15 @@ def main(corpus, model, k, alpha,  beta, gamma, eta, n_iter, py):
         else:
             lda = clda
         beta = beta[0]
-        lda(corpus, k, alpha, beta, n_iter)
+        lda(corpus, k, alpha, beta, n_iter, report_every=report_every)
     elif model == "pltm":
-        pltm(corpus, k, alpha, beta, n_iter)
+        pltm(corpus, k, alpha, beta, n_iter, report_every=report_every)
     elif model == "ctm":
         beta = beta[0]
-        ctm(corpus, k, alpha, beta, gamma, n_iter)
+        ctm(corpus, k, alpha, beta, gamma, n_iter, report_every=report_every)
     elif model == "nctm":
         beta = beta[0]
-        nctm(corpus, k, alpha, beta, gamma, eta, n_iter)
+        nctm(corpus, k, alpha, beta, gamma, eta, n_iter, report_every=report_every)
     else:
         raise ValueError("model out of bounds. " + model)
 
