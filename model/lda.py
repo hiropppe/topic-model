@@ -11,7 +11,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 
-def train(corpus, k, alpha, beta, n_iter, report_every=100, prefix="lda", output_dir="."):
+def train(corpus, k, alpha, beta, wv=None, n_iter=1000, report_every=100, prefix="lda", output_dir="."):
     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
     D, W, word2id = load_corpus(corpus)
@@ -41,10 +41,18 @@ def train(corpus, k, alpha, beta, n_iter, report_every=100, prefix="lda", output
     for i in pbar:
         lda.inference(D, Z, L, n_kw, n_dk, n_k, n_d, alpha, beta)
         if i % report_every == 0:
-            pbar.set_postfix(ppl="{:.3f}".format(util.ppl(L, n_kw, n_k, n_dk, n_d, alpha, beta)))
+            ppl = util.ppl(L, n_kw, n_k, n_dk, n_d, alpha, beta)
+            if wv:
+                coherence = util.coherence(wv, W, n_kw, topn=20)
+                pbar.set_postfix(ppl="{:.3f}".format(ppl), coh="{:.3f}".format(coherence))
+            else:
+                pbar.set_postfix(ppl="{:.3f}".format(ppl))
     elapsed = time.time() - start
+    ppl = util.ppl(L, n_kw, n_k, n_dk, n_d, alpha, beta)
+    coherence = util.coherence(wv, W, n_kw, topn=20)
     logging.info("Sampling completed! Elapsed {:.4f} sec ppl={:.3f}".format(
-        elapsed, util.ppl(L, n_kw, n_k, n_dk, n_d, alpha, beta)))
+        elapsed, ppl, coherence))
+
     save(W, Z, n_kw, n_dk, n_k, n_d, alpha, beta, prefix=prefix, output_dir=output_dir)
 
 

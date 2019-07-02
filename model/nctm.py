@@ -12,7 +12,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 
-def train(corpus, K, alpha, beta, gamma, eta, n_iter, report_every=100, prefix="nctm", output_dir="."):
+def train(corpus, K, alpha, beta, gamma, eta, wv=None, n_iter=1000, report_every=100, prefix="nctm", output_dir="."):
     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
     W, X, V, S = load_corpus(corpus)
@@ -49,10 +49,18 @@ def train(corpus, K, alpha, beta, gamma, eta, n_iter, report_every=100, prefix="
         model.inference(W, X, Z, Y, R, Lw, Lx, n_kw, m_kx, m_rx, n_dk, m_dk,
                         m_dr, n_k, m_k, m_r, n_d, m_d, alpha, beta, gamma, eta)
         if i % report_every == 0:
-            pbar.set_postfix(ppl="{:.3f}".format(util.ppl(Lw, n_kw, n_k, n_dk, n_d, alpha, beta)))
+            ppl = util.ppl(Lw, n_kw, n_k, n_dk, n_d, alpha, beta)
+            if wv:
+                coherence = util.coherence(wv, V, n_kw, topn=20)
+                pbar.set_postfix(ppl="{:.3f}".format(ppl), coh="{:.3f}".format(coherence))
+            else:
+                pbar.set_postfix(ppl="{:.3f}".format(ppl))
     elapsed = time.time() - start
-    logging.info("Sampling completed! Elapsed {:.4f} sec ppl={:.3f}".format(
-        elapsed, util.ppl(Lw, n_kw, n_k, n_dk, n_d, alpha, beta)))
+    ppl = util.ppl(Lw, n_kw, n_k, n_dk, n_d, alpha, beta)
+    coherence = util.coherence(wv, V, n_kw, topn=20)
+    logging.info("Sampling completed! Elapsed {:.4f} sec ppl={:.3f} coh={:.3f}".format(
+        elapsed, ppl, coherence))
+
     save(Z, V, S, n_kw, n_dk, n_k, n_d, m_kx, alpha, beta, prefix=prefix, output_dir=output_dir)
 
 
