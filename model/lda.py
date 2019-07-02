@@ -50,7 +50,7 @@ def train(corpus, k, alpha, beta, wv=None, n_iter=1000, report_every=100, prefix
     elapsed = time.time() - start
     ppl = util.ppl(L, n_kw, n_k, n_dk, n_d, alpha, beta)
     coherence = util.coherence(wv, W, n_kw, topn=20)
-    logging.info("Sampling completed! Elapsed {:.4f} sec ppl={:.3f}".format(
+    logging.info("Sampling completed! Elapsed {:.4f} sec ppl={:.3f} coh={:.3f}".format(
         elapsed, ppl, coherence))
 
     save(W, Z, n_kw, n_dk, n_k, n_d, alpha, beta, prefix=prefix, output_dir=output_dir)

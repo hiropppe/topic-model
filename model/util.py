@@ -3,7 +3,7 @@ import numpy as np
 from scipy.special import gammaln
 
 from gensim import matutils
-from itertools import permutations
+from itertools import combinations
 
 
 def ppl(L, n_kw, n_k, n_dk, n_d, alpha, beta):
@@ -34,7 +34,7 @@ def coherence(wv, W, n_kw, topn=20):
     scores = []
     for k in range(K):
         topn_indices = matutils.argsort(n_kw[k], topn=topn, reverse=True)
-        for x, y in permutations(topn_indices, 2):
+        for x, y in combinations(topn_indices, 2):
             w_x, w_y = W[x], W[y]
             if w_x in wv and w_y in wv:
                 scores.append(wv.similarity(w_x, w_y))
