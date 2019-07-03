@@ -31,7 +31,7 @@ def main(corpus, model, k, alpha,  beta, gamma, eta, embedding, coo_prefix, n_it
     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
     if embedding:
-        logging.info("Embedding for topic coherence evaluation: {:s}".format(embedding))
+        logging.info("Loading Embedding for topic coherence evaluation: {:s}".format(embedding))
         if embedding.endswith(".model"):
             wv = Word2Vec.load(embedding).wv
         else:
@@ -40,7 +40,7 @@ def main(corpus, model, k, alpha,  beta, gamma, eta, embedding, coo_prefix, n_it
         wv = None
 
     if coo_prefix:
-        logging.info("Co-occurence matrix for topic coherence evaluation: {:s}".format(coo_prefix))
+        logging.info("Loading Co-occurence matrix for topic coherence evaluation: {:s}".format(coo_prefix))
         inp_csc_path = coo_prefix + ".csc"
         inp_token2id_path = coo_prefix + ".token2id"
         inp_vocab_path = coo_prefix + ".vocab"
@@ -83,7 +83,7 @@ def main(corpus, model, k, alpha,  beta, gamma, eta, embedding, coo_prefix, n_it
         ctm(corpus, k, alpha, beta, gamma, n_iter, report_every=report_every)
     elif model == "nctm":
         beta = beta[0]
-        nctm(corpus, k, alpha, beta, gamma, eta, wv, n_iter,
+        nctm(corpus, k, alpha, beta, gamma, eta, wv, coo_matrix, coo_word2id, n_iter,
              report_every=report_every, prefix=prefix, output_dir=output_dir)
     else:
         raise ValueError("model out of bounds. " + model)

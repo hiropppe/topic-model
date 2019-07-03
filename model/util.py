@@ -1,12 +1,14 @@
 import numpy as np
+#np.seterr(all="raise")
 
 from scipy.special import gammaln
 
 from gensim import matutils
 from itertools import combinations
+from tqdm import tqdm
 
 
-def ppl(L, n_kw, n_k, n_dk, n_d, alpha, beta):
+def perplexity(L, n_kw, n_k, n_dk, n_d, alpha, beta):
     likelihood = polyad(n_dk, n_d, alpha) + polyaw(n_kw, n_k, beta)
     return np.exp(-likelihood/L)
 
@@ -29,38 +31,69 @@ def polyaw(n_kw, n_k, beta):
     return likelihood
 
 
-def coherence(wv, W, n_kw, topn=20):
-    K = len(n_kw)
-    scores = []
-    for k in range(K):
-        topn_indices = matutils.argsort(n_kw[k], topn=topn, reverse=True)
-        for x, y in combinations(topn_indices, 2):
-            w_x, w_y = W[x], W[y]
-            if w_x in wv and w_y in wv:
-                scores.append(wv.similarity(w_x, w_y))
-    return np.mean(scores)
+class EmbeddingCoherence():
+
+    def __init__(self, wv, W, n_kw, topn=20):
+        self.wv = wv
+        self.W = W
+        self.n_kw = n_kw
+        self.topn = topn
+        self.K = len(n_kw)
+
+    def score(self):
+        scores = []
+        for k in range(self.K):
+            topn_indices = matutils.argsort(self.n_kw[k], topn=self.topn, reverse=True)
+            for x, y in combinations(topn_indices, 2):
+                w_x, w_y = self.W[x], self.W[y]
+                if w_x in self.wv and w_y in self.wv:
+                    scores.append(self.wv.similarity(w_x, w_y))
+        return np.mean(scores)
 
 
-def pmi_coherence(M, word2id, N, W, n_kw, topn=20):
-    K = len(n_kw)
+class PMICoherence():
 
-    def pmi(x, y, eps=1e-08):
-        ix = word2id[x]
-        iy = word2id[y]
-        X = M[:, ix].sum()
-        Y = M[:, iy].sum()
-        XY = M[ix, iy]
-        pmi = np.log2(XY * N / (X * Y + eps))
-        # pmi = max(0, pmi)
+    def __init__(self, M, word2id, W, n_kw, eps=1e-08, topn=20):
+        self.M = M
+        self.M.setdiag(0)
+        self.word2id = word2id
+        self.W = W
+        self.n_kw = n_kw
+        self.eps = eps
+        self.topn = topn
+        self.K = len(n_kw)
+        self.N = np.sum(M)
+
+        V = len(W)
+        self.n_w = np.zeros((V), dtype=np.int32)
+        for i in tqdm(range(V)):
+            if W[i] in word2id:
+                self.n_w[i] = self.M[:, word2id[W[i]]].sum()
+            else:
+                self.n_w[i] = 0
+
+    def pmi(self, x, y, w_x, w_y):
+        ix = self.word2id[w_x]
+        iy = self.word2id[w_y]
+        X = self.n_w[x]
+        Y = self.n_w[y]
+        XY = self.M[ix, iy]
+        if XY == 0 or X == 0 or Y == 0:
+            pmi = 0
+        else:
+            # pmi = np.log2(XY*N/(X*Y+self.eps))/(-np.log(XY/self.N) + self.eps)
+            p_xy = XY/self.N
+            p_x = X/self.N
+            p_y = Y/self.N
+            pmi = np.log2(p_xy/(p_x*p_y+self.eps))/(-np.log(p_xy) + self.eps)
         return pmi
 
-    scores = []
-    for k in range(K):
-        topn_indices = matutils.argsort(n_kw[k], topn=topn, reverse=True)
-        for x, y in combinations(topn_indices, 2):
-            w_x, w_y = W[x], W[y]
-            if w_x in word2id and w_y in word2id:
-                scores.append(pmi(w_x, w_y))
-    return np.mean(scores)
-
-
+    def score(self):
+        scores = []
+        for k in range(self.K):
+            topn_indices = matutils.argsort(self.n_kw[k], topn=self.topn, reverse=True)
+            for x, y in combinations(topn_indices, 2):
+                w_x, w_y = self.W[x], self.W[y]
+                if w_x in self.word2id and w_y in self.word2id:
+                    scores.append(self.pmi(x, y, w_x, w_y))
+        return np.mean(scores)

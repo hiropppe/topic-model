@@ -3,7 +3,7 @@ import numpy as np
 import time
 
 from . import lda_c as lda
-from . import util
+from .util import perplexity, EmbeddingCoherence, PMICoherence
 
 from gensim import matutils
 from gensim.models.word2vec import LineSentence
@@ -27,15 +27,21 @@ def train(corpus, k, alpha, beta, wv=None, coo_matrix=None, coo_word2id=None, n_
     logging.info("alpha: {:.3f}".format(alpha))
     logging.info("beta: {:.3f}".format(beta))
 
-    if coo_matrix is not None:
-        coo_N = np.sum(coo_matrix)
-
     n_kw = np.zeros((K, V), dtype=np.int32)  # number of word w assigned to topic k
     n_dk = np.zeros((N, K), dtype=np.int32)  # number of words in document d assigned to topic k
     n_k = np.zeros((K), dtype=np.int32)  # total number of words assigned to topic k
     n_d = np.zeros((N), dtype=np.int32)  # number of word in document (document length)
 
     lda.init(D, Z, n_kw, n_dk, n_k, n_d)
+
+    if coo_matrix is not None:
+        logging.info("Initializing PMI Coherence Model...")
+        coherence = PMICoherence(coo_matrix, coo_word2id, W, n_kw, topn=20)
+    elif wv is not None:
+        logging.info("Initialize Word Embedding Coherence Model...")
+        coherence = EmbeddingCoherence(wv, W, n_kw, topn=20)
+    else:
+        coherence = None
 
     logging.info("Running Gibbs sampling inference: ")
     logging.info("Number of sampling iterations: {:d}".format(n_iter))
@@ -44,25 +50,18 @@ def train(corpus, k, alpha, beta, wv=None, coo_matrix=None, coo_word2id=None, n_
     for i in pbar:
         lda.inference(D, Z, L, n_kw, n_dk, n_k, n_d, alpha, beta)
         if i % report_every == 0:
-            ppl = util.ppl(L, n_kw, n_k, n_dk, n_d, alpha, beta)
-            if wv:
-                coherence = util.coherence(wv, W, n_kw, topn=20)
-                pbar.set_postfix(ppl="{:.3f}".format(ppl), coh="{:.3f}".format(coherence))
-            elif coo_matrix is not None:
-                coherence = util.pmi_coherence(coo_matrix, coo_word2id, coo_N, W, n_kw, topn=20)
-                pbar.set_postfix(ppl="{:.3f}".format(ppl), coh="{:.3f}".format(coherence))
-            else:
+            ppl = perplexity(L, n_kw, n_k, n_dk, n_d, alpha, beta)
+            if coherence is None:
                 pbar.set_postfix(ppl="{:.3f}".format(ppl))
+            else:
+                coh = coherence.score()
+                pbar.set_postfix(ppl="{:.3f}".format(ppl), coh="{:.3f}".format(coh))
     elapsed = time.time() - start
-    ppl = util.ppl(L, n_kw, n_k, n_dk, n_d, alpha, beta)
-    if wv:
-        coherence = util.coherence(wv, W, n_kw, topn=20)
+    ppl = perplexity(L, n_kw, n_k, n_dk, n_d, alpha, beta)
+    if coherence:
+        coh = coherence.score()
         logging.info("Sampling completed! Elapsed {:.4f} sec ppl={:.3f} coh={:.3f}".format(
-            elapsed, ppl, coherence))
-    elif coo_matrix is not None:
-        coherence = util.pmi_coherence(coo_matrix, coo_word2id, coo_N, W, n_kw, topn=20)
-        logging.info("Sampling completed! Elapsed {:.4f} sec ppl={:.3f} coh={:.3f}".format(
-            elapsed, ppl, coherence))
+            elapsed, ppl, coh))
     else:
         logging.info("Sampling completed! Elapsed {:.4f} sec ppl={:.3f}".format(
             elapsed, coherence))

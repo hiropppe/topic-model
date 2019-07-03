@@ -5,14 +5,14 @@ import time
 import pandas as pd
 
 from . import nctm_c as model
-from . import util
+from .util import perplexity, EmbeddingCoherence, PMICoherence
 
 from gensim import matutils
 from pathlib import Path
 from tqdm import tqdm
 
 
-def train(corpus, K, alpha, beta, gamma, eta, wv=None, n_iter=1000, report_every=100, prefix="nctm", output_dir="."):
+def train(corpus, K, alpha, beta, gamma, eta, wv=None, coo_matrix=None, coo_word2id=None, n_iter=1000, report_every=100, prefix="nctm", output_dir="."):
     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
     W, X, V, S = load_corpus(corpus)
@@ -41,6 +41,16 @@ def train(corpus, K, alpha, beta, gamma, eta, wv=None, n_iter=1000, report_every
     m_r = np.zeros((2), dtype=np.int32)
 
     model.init(W, X, Z, Y, R, n_kw, m_kx, m_rx, n_dk, m_dk, m_dr, n_k, m_k, m_r, n_d, m_d)
+
+    if coo_matrix is not None:
+        logging.info("Initializing PMI Coherence Model...")
+        coherence = PMICoherence(coo_matrix, coo_word2id, W, n_kw, topn=20)
+    elif wv is not None:
+        logging.info("Initialize Word Embedding Coherence Model...")
+        coherence = EmbeddingCoherence(wv, V, n_kw, topn=20)
+    else:
+        coherence = None
+
     logging.info("Running Gibbs sampling inference: ")
     logging.info("Number of sampling iterations: {:d}".format(n_iter))
     start = time.time()
@@ -49,17 +59,21 @@ def train(corpus, K, alpha, beta, gamma, eta, wv=None, n_iter=1000, report_every
         model.inference(W, X, Z, Y, R, Lw, Lx, n_kw, m_kx, m_rx, n_dk, m_dk,
                         m_dr, n_k, m_k, m_r, n_d, m_d, alpha, beta, gamma, eta)
         if i % report_every == 0:
-            ppl = util.ppl(Lw, n_kw, n_k, n_dk, n_d, alpha, beta)
-            if wv:
-                coherence = util.coherence(wv, V, n_kw, topn=20)
-                pbar.set_postfix(ppl="{:.3f}".format(ppl), coh="{:.3f}".format(coherence))
-            else:
+            ppl = perplexity(Lw, n_kw, n_k, n_dk, n_d, alpha, beta)
+            if coherence is None:
                 pbar.set_postfix(ppl="{:.3f}".format(ppl))
+            else:
+                coh = coherence.score()
+                pbar.set_postfix(ppl="{:.3f}".format(ppl), coh="{:.3f}".format(coh))
     elapsed = time.time() - start
-    ppl = util.ppl(Lw, n_kw, n_k, n_dk, n_d, alpha, beta)
-    coherence = util.coherence(wv, V, n_kw, topn=20)
-    logging.info("Sampling completed! Elapsed {:.4f} sec ppl={:.3f} coh={:.3f}".format(
-        elapsed, ppl, coherence))
+    ppl = perplexity(Lw, n_kw, n_k, n_dk, n_d, alpha, beta)
+    if coherence:
+        coh = coherence.score()
+        logging.info("Sampling completed! Elapsed {:.4f} sec ppl={:.3f} coh={:.3f}".format(
+            elapsed, ppl, coh))
+    else:
+        logging.info("Sampling completed! Elapsed {:.4f} sec ppl={:.3f}".format(
+            elapsed, coherence))
 
     save(Z, V, S, n_kw, n_dk, n_k, n_d, m_kx, alpha, beta, prefix=prefix, output_dir=output_dir)
 
