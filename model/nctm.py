@@ -1,5 +1,6 @@
 import logging
 import numpy as np
+import sys
 import time
 
 import pandas as pd
@@ -7,12 +8,26 @@ import pandas as pd
 from . import nctm_c as model
 from .util import perplexity, EmbeddingCoherence, PMICoherence
 
+from operator import itemgetter
 from gensim import matutils
 from pathlib import Path
 from tqdm import tqdm
 
 
-def train(corpus, K, alpha, beta, gamma, eta, wv=None, coo_matrix=None, coo_word2id=None, n_iter=1000, report_every=100, prefix="nctm", output_dir="."):
+def train(corpus,
+          K,
+          alpha,
+          beta,
+          gamma,
+          eta,
+          wv=None,
+          coo_matrix=None,
+          coo_word2id=None,
+          n_iter=1000,
+          report_every=100,
+          prefix="nctm",
+          output_dir=".",
+          verbose=False):
     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
     W, X, V, S = load_corpus(corpus)
@@ -27,6 +42,7 @@ def train(corpus, K, alpha, beta, gamma, eta, wv=None, coo_matrix=None, coo_word
     logging.info("alpha: {:.3f}".format(alpha))
     logging.info("beta: {:.3f}".format(beta))
     logging.info("gamma: {:.3f}".format(gamma))
+    logging.info("eta: {:.3f}".format(eta))
 
     n_kw = np.zeros((K, Lv), dtype=np.int32)  # number of word w assigned to topic k
     n_dk = np.zeros((N, K), dtype=np.int32)  # number of word in document d assigned to topic k
@@ -54,17 +70,18 @@ def train(corpus, K, alpha, beta, gamma, eta, wv=None, coo_matrix=None, coo_word
     logging.info("Running Gibbs sampling inference: ")
     logging.info("Number of sampling iterations: {:d}".format(n_iter))
     start = time.time()
+
     pbar = tqdm(range(n_iter))
     for i in pbar:
         model.inference(W, X, Z, Y, R, Lw, Lx, n_kw, m_kx, m_rx, n_dk, m_dk,
                         m_dr, n_k, m_k, m_r, n_d, m_d, alpha, beta, gamma, eta)
         if i % report_every == 0:
             ppl = perplexity(Lw, n_kw, n_k, n_dk, n_d, alpha, beta)
-            if coherence is None:
-                pbar.set_postfix(ppl="{:.3f}".format(ppl))
-            else:
+            if coherence:
                 coh = coherence.score()
                 pbar.set_postfix(ppl="{:.3f}".format(ppl), coh="{:.3f}".format(coh))
+            else:
+                pbar.set_postfix(ppl="{:.3f}".format(ppl))
     elapsed = time.time() - start
     ppl = perplexity(Lw, n_kw, n_k, n_dk, n_d, alpha, beta)
     if coherence:
@@ -73,9 +90,10 @@ def train(corpus, K, alpha, beta, gamma, eta, wv=None, coo_matrix=None, coo_word
             elapsed, ppl, coh))
     else:
         logging.info("Sampling completed! Elapsed {:.4f} sec ppl={:.3f}".format(
-            elapsed, coherence))
+            elapsed, ppl))
 
-    save(Z, V, S, n_kw, n_dk, n_k, n_d, m_kx, alpha, beta, prefix=prefix, output_dir=output_dir)
+    save(Z, V, S, n_kw, n_dk, n_k, n_d, m_k, m_kx, m_r, m_rx, m_dr,
+         alpha, beta, gamma, eta, prefix=prefix, output_dir=output_dir)
 
 
 def load_corpus(corpus):
@@ -120,7 +138,7 @@ def assign_random_topic(W, X, K):
     return Z, Y, R
 
 
-def save(Z, V, S, n_kw, n_dk, n_k, n_d, m_kx, alpha, beta, prefix, output_dir='./', topn=20):
+def save(Z, V, S, n_kw, n_dk, n_k, n_d, m_k, m_kx, m_r, m_rx, m_dr, alpha, beta, gamma, eta, prefix, output_dir='./', topn=20):
     logging.info("Writing output from the last sample ...")
     logging.info("Number of top topical words: {:d}".format(topn))
 
@@ -130,6 +148,7 @@ def save(Z, V, S, n_kw, n_dk, n_k, n_d, m_kx, alpha, beta, prefix, output_dir='.
     save_theta(n_dk, n_d, alpha, prefix, output_dir)
     save_phi(n_kw, n_k, beta, prefix, output_dir)
     save_informative_word(V, n_kw, n_k, beta, topn, prefix, output_dir)
+    save_rx_prob(S, m_r, m_rx, gamma, prefix, output_dir)
 
 
 def save_topic(V, S, n_kw, n_k, m_kx, beta, topn, prefix, output_dir):
@@ -191,3 +210,18 @@ def save_informative_word(V, n_kw, n_k, beta, topn, prefix, output_dir):
             topn_informative_words = matutils.argsort(jlh_scores[k], topn=topn, reverse=True)
             print(" ".join(["{:s}*{:.4f}".format(V[w], jlh_scores[k, w])
                             for w in topn_informative_words]), file=fo)
+
+
+def save_rx_prob(S, m_r, m_rx, gamma, prefix, output_dir):
+    output_path = output_dir / (prefix + ".rxp")
+    Ls = m_rx.shape[1]
+    rxp = []
+    with open(output_path.as_posix(), "w") as fo:
+        for x in range(Ls):
+            sum_rx = m_rx[:, x].sum()
+            p_rx0 = (m_rx[0, x] + gamma) / (sum_rx + Ls * gamma)
+            p_rx1 = (m_rx[1, x] + gamma) / (sum_rx + Ls * gamma)
+            rxp.append((S[x], p_rx0, p_rx1))
+        rxp.sort(key=itemgetter(1), reverse=True)
+        for e in rxp:
+            print("{:s} {:.3f} {:.3f}".format(e[0], e[1], e[2]), file=fo)
