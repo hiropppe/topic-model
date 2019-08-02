@@ -1,3 +1,4 @@
+import json
 import logging
 import numpy as np
 import sys
@@ -197,6 +198,7 @@ def save_informative_word(V, n_kw, n_k, beta, topn, prefix, output_dir):
     K = len(n_kw)
     Lv = n_kw.shape[1]
     n_w = {}
+    topics = []
     with open(output_path.as_posix(), "w") as fo:
         for w in range(Lv):
             n_w[w] = n_kw[:, w].sum()
@@ -208,8 +210,10 @@ def save_informative_word(V, n_kw, n_k, beta, topn, prefix, output_dir):
                 loc = (n_kw[k, w] + beta)/(n_k[k] + Lv * beta)
                 jlh_scores[k, w] = (glo-loc) * (glo/loc)
             topn_informative_words = matutils.argsort(jlh_scores[k], topn=topn, reverse=True)
-            print(" ".join(["{:s}*{:.4f}".format(V[w], jlh_scores[k, w])
-                            for w in topn_informative_words]), file=fo)
+            #print(" ".join(["{:s}*{:.4f}".format(V[w], jlh_scores[k, w])
+            #                for w in topn_informative_words]), file=fo)
+            topics.append((k, [(V[w], float(jlh_scores[k, w])) for w in topn_informative_words]))
+        print(json.dumps(topics), file=fo)
 
 
 def save_rx_prob(S, m_r, m_rx, gamma, prefix, output_dir):
