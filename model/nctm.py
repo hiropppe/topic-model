@@ -12,7 +12,6 @@ from .util import perplexity, EmbeddingCoherence, PMICoherence
 from operator import itemgetter
 from gensim import matutils
 from pathlib import Path
-from tqdm import tqdm
 
 
 def train(corpus,
@@ -28,7 +27,8 @@ def train(corpus,
           report_every=100,
           prefix="nctm",
           output_dir=".",
-          verbose=False):
+          verbose=False,
+          on_notebook=False):
     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
     W, X, V, S = load_corpus(corpus)
@@ -71,6 +71,11 @@ def train(corpus,
     logging.info("Running Gibbs sampling inference: ")
     logging.info("Number of sampling iterations: {:d}".format(n_iter))
     start = time.time()
+
+    if on_notebook:
+        from tqdm import tqdm_notebook as tqdm
+    else:
+        from tqdm import tqdm
 
     pbar = tqdm(range(n_iter))
     for i in pbar:

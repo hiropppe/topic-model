@@ -1,3 +1,4 @@
+import json
 import logging
 import numpy as np
 import time
@@ -8,10 +9,20 @@ from .util import perplexity, EmbeddingCoherence, PMICoherence
 from gensim import matutils
 from gensim.models.word2vec import LineSentence
 from pathlib import Path
-from tqdm import tqdm
 
 
-def train(corpus, k, alpha, beta, wv=None, coo_matrix=None, coo_word2id=None, n_iter=1000, report_every=100, prefix="lda", output_dir="."):
+def train(corpus,
+          k,
+          alpha,
+          beta,
+          wv=None,
+          coo_matrix=None,
+          coo_word2id=None,
+          n_iter=1000,
+          report_every=100,
+          prefix="lda",
+          output_dir=".",
+          on_notebook=False):
     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
     D, W, word2id = load_corpus(corpus)
@@ -46,6 +57,11 @@ def train(corpus, k, alpha, beta, wv=None, coo_matrix=None, coo_word2id=None, n_
     logging.info("Running Gibbs sampling inference: ")
     logging.info("Number of sampling iterations: {:d}".format(n_iter))
     start = time.time()
+
+    if on_notebook:
+        from tqdm import tqdm_notebook as tqdm
+    else:
+        from tqdm import tqdm
     pbar = tqdm(range(n_iter))
     for i in pbar:
         lda.inference(D, Z, L, n_kw, n_dk, n_k, n_d, alpha, beta)
@@ -63,8 +79,7 @@ def train(corpus, k, alpha, beta, wv=None, coo_matrix=None, coo_word2id=None, n_
         logging.info("Sampling completed! Elapsed {:.4f} sec ppl={:.3f} coh={:.3f}".format(
             elapsed, ppl, coh))
     else:
-        logging.info("Sampling completed! Elapsed {:.4f} sec ppl={:.3f}".format(
-            elapsed, coherence))
+        logging.info("Sampling completed! Elapsed {:.4f} sec ppl={:.3f}".format(elapsed, ppl))
 
     save(W, Z, n_kw, n_dk, n_k, n_d, alpha, beta, prefix=prefix, output_dir=output_dir)
 
@@ -150,6 +165,7 @@ def save_informative_word(W, n_kw, n_k, beta, topn, prefix, output_dir):
     K = len(n_kw)
     V = n_kw.shape[1]
     n_w = {}
+    topics = []
     with open(output_path.as_posix(), "w") as fo:
         for w in range(V):
             n_w[w] = n_kw[:, w].sum()
@@ -161,5 +177,7 @@ def save_informative_word(W, n_kw, n_k, beta, topn, prefix, output_dir):
                 loc = (n_kw[k, w] + beta)/(n_k[k] + V * beta)
                 jlh_scores[k, w] = (glo-loc) * (glo/loc)
             topn_informative_words = matutils.argsort(jlh_scores[k], topn=topn, reverse=True)
-            print(" ".join(["{:s}*{:.4f}".format(W[w], jlh_scores[k, w])
-                            for w in topn_informative_words]), file=fo)
+            #print(" ".join(["{:s}*{:.4f}".format(W[w], jlh_scores[k, w])
+            #                for w in topn_informative_words]), file=fo)
+            topics.append((k, [(W[w], float(jlh_scores[k, w])) for w in topn_informative_words]))
+        print(json.dumps(topics), file=fo)
