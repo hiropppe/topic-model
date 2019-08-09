@@ -10,6 +10,11 @@ from gensim import matutils
 from gensim.models.word2vec import LineSentence
 from pathlib import Path
 
+from tqdm import tqdm_notebook
+from tqdm import tqdm
+
+notebook = False
+
 
 def train(corpus,
           k,
@@ -21,8 +26,7 @@ def train(corpus,
           n_iter=1000,
           report_every=100,
           prefix="lda",
-          output_dir=".",
-          on_notebook=False):
+          output_dir="."):
     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
     D, W, word2id = load_corpus(corpus)
@@ -58,11 +62,11 @@ def train(corpus,
     logging.info("Number of sampling iterations: {:d}".format(n_iter))
     start = time.time()
 
-    if on_notebook:
-        from tqdm import tqdm_notebook as tqdm
+    if notebook:
+        pbar = tqdm_notebook(range(n_iter))
     else:
-        from tqdm import tqdm
-    pbar = tqdm(range(n_iter))
+        pbar = tqdm(range(n_iter))
+
     for i in pbar:
         lda.inference(D, Z, L, n_kw, n_dk, n_k, n_d, alpha, beta)
         if i % report_every == 0:
@@ -123,44 +127,65 @@ def save(W, Z, n_kw, n_dk, n_k, n_d, alpha, beta, prefix, output_dir='.', topn=2
 
 
 def save_topic(W, n_kw, n_k, beta, topn, prefix, output_dir):
+    logging.info("Writing topics ...")
     output_path = output_dir / (prefix + ".topic")
     K = len(n_kw)
     V = n_kw.shape[1]
     with open(output_path.as_posix(), "w") as fo:
-        for k in range(K):
+        if notebook:
+            pbar = tqdm_notebook(range(K))
+        else:
+            pbar = tqdm(range(K))
+        for k in pbar:
             topn_indices = matutils.argsort(n_kw[k], topn=topn, reverse=True)
             print(" ".join(["{:s}*{:.4f}".format(W[w], ((n_kw[k, w] + beta) /
                                                         (n_k[k] + V * beta))) for w in topn_indices]), file=fo)
 
 
 def save_theta(n_dk, n_d, alpha, prefix, output_dir):
+    logging.info("Writing θ ...")
     output_path = output_dir / (prefix + ".theta")
     N = len(n_dk)
     K = n_dk.shape[1]
     with open(output_path.as_posix(), "w") as fo:
-        for d in range(N):
+        if notebook:
+            pbar = tqdm_notebook(range(N))
+        else:
+            pbar = tqdm(range(N))
+        for d in pbar:
             print(" ".join(["{:.4f}".format((n_dk[d, k] + alpha)/(n_d[d] + K * alpha))
                             for k in range(K)]), file=fo)
 
 
 def save_z(Z, prefix, output_dir):
+    logging.info("Writing z ...")
     output_path = output_dir / (prefix + ".z")
     with open(output_path.as_posix(), "w") as fo:
-        for d in range(len(Z)):
+        if notebook:
+            pbar = tqdm_notebook(range(len(Z)))
+        else:
+            pbar = tqdm(range(len(Z)))
+        for d in pbar:
             print(" ".join(Z[d].astype(np.unicode_)), file=fo)
 
 
 def save_phi(n_kw, n_k, beta, prefix, output_dir):
+    logging.info("Writing Φ ...")
     output_path = output_dir / (prefix + ".phi")
     K = len(n_kw)
     V = n_kw.shape[1]
     with open(output_path.as_posix(), "w") as fo:
-        for k in range(K):
+        if notebook:
+            pbar = tqdm_notebook(range(K))
+        else:
+            pbar = tqdm(range(K))
+        for k in pbar:
             print(" ".join(["{:.4f}".format((n_kw[k, w] + beta)/(n_k[k] + V * beta))
                             for w in range(V)]), file=fo)
 
 
 def save_informative_word(W, n_kw, n_k, beta, topn, prefix, output_dir):
+    logging.info("Writing important words ...")
     output_path = output_dir / (prefix + ".jlh")
     K = len(n_kw)
     V = n_kw.shape[1]
@@ -169,9 +194,12 @@ def save_informative_word(W, n_kw, n_k, beta, topn, prefix, output_dir):
     with open(output_path.as_posix(), "w") as fo:
         for w in range(V):
             n_w[w] = n_kw[:, w].sum()
-
+        if notebook:
+            pbar = tqdm_notebook(range(K))
+        else:
+            pbar = tqdm(range(K))
         jlh_scores = np.zeros((K, V), dtype=np.float32)
-        for k in range(K):
+        for k in pbar:
             for w in range(V):
                 glo = (n_kw[k, w] + beta)/(n_w[w] + V * beta)
                 loc = (n_kw[k, w] + beta)/(n_k[k] + V * beta)
