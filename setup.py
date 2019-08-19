@@ -16,10 +16,10 @@ extensions = [
     Extension('model.nctm_c',  sources=['model/nctm_c.pyx'],  language="c++", extra_compile_args=["-std=c++11", "-O3", "-mtune=native", "-march=native", "-mfpmath=both"]),
 ]
 
-core.setup(
-  ext_modules=cythonize(extensions),
-  include_dirs=[numpy.get_include(), 'model/include']
-)
+#core.setup(
+#  ext_modules=cythonize(extensions),
+#  include_dirs=[numpy.get_include(), 'model/include']
+#)
 
 requires = [
 ]
@@ -30,11 +30,14 @@ setup(
   author='take',
   url='',
   packages=find_packages(),
+  ext_modules=cythonize(extensions),
+  include_dirs=[numpy.get_include(), 'model/include'],
   scripts=[
   ],
   install_requires=requires,
   license='MIT',
   test_suite='test',
+  zip_safe=False,
   classifiers=[
     'Operating System :: OS Independent',
     'Environment :: Console',
