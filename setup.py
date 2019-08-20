@@ -10,28 +10,28 @@ from Cython.Build import cythonize
 
 
 extensions = [
-    Extension('model.lda_c',   sources=['model/lda_c.pyx'],   language="c++", extra_compile_args=["-std=c++11", "-O3", "-mtune=native", "-march=native", "-mfpmath=both"]),
-    Extension('model.pltm_c',  sources=['model/pltm_c.pyx'],  language="c++", extra_compile_args=["-std=c++11", "-O3", "-mtune=native", "-march=native", "-mfpmath=both"]),
-    Extension('model.ctm_c',   sources=['model/ctm_c.pyx'],   language="c++", extra_compile_args=["-std=c++11", "-O3", "-mtune=native", "-march=native", "-mfpmath=both"]),
-    Extension('model.nctm_c',  sources=['model/nctm_c.pyx'],  language="c++", extra_compile_args=["-std=c++11", "-O3", "-mtune=native", "-march=native", "-mfpmath=both"]),
+    Extension('cytm.lda_c',   sources=['cytm/lda_c.pyx'],   language="c++", extra_compile_args=["-std=c++11", "-O3", "-mtune=native", "-march=native", "-mfpmath=both"]),
+    Extension('cytm.pltm_c',  sources=['cytm/pltm_c.pyx'],  language="c++", extra_compile_args=["-std=c++11", "-O3", "-mtune=native", "-march=native", "-mfpmath=both"]),
+    Extension('cytm.ctm_c',   sources=['cytm/ctm_c.pyx'],   language="c++", extra_compile_args=["-std=c++11", "-O3", "-mtune=native", "-march=native", "-mfpmath=both"]),
+    Extension('cytm.nctm_c',  sources=['cytm/nctm_c.pyx'],  language="c++", extra_compile_args=["-std=c++11", "-O3", "-mtune=native", "-march=native", "-mfpmath=both"]),
 ]
 
 #core.setup(
 #  ext_modules=cythonize(extensions),
-#  include_dirs=[numpy.get_include(), 'model/include']
+#  include_dirs=[numpy.get_include(), 'cytm/include']
 #)
 
 requires = [
 ]
 
 setup(
-  name='topic-model',
+  name='cytm',
   version='0.0.1',
   author='take',
   url='',
   packages=find_packages(),
   ext_modules=cythonize(extensions),
-  include_dirs=[numpy.get_include(), 'model/include'],
+  include_dirs=[numpy.get_include(), 'cytm/include'],
   scripts=[
   ],
   install_requires=requires,

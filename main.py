@@ -5,11 +5,11 @@ import scipy as sci
 
 from gensim.models import KeyedVectors, Word2Vec
 
-from model.lda import train as clda
-from model.pylda import train as pylda
-from model.pltm import train as pltm
-from model.ctm import train as ctm
-from model.nctm import train as nctm
+from cytm.lda import train as clda
+from cytm.pylda import train as pylda
+from cytm.pltm import train as pltm
+from cytm.ctm import train as ctm
+from cytm.nctm import train as nctm
 
 
 @click.command()

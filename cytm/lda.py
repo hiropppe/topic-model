@@ -120,9 +120,9 @@ def save(W, Z, n_kw, n_dk, n_k, n_d, alpha, beta, prefix, output_dir='.', topn=2
 
     output_dir = Path(output_dir)
     save_topic(W, n_kw, n_k, beta, topn, prefix, output_dir)
-    save_z(Z, prefix, output_dir)
-    save_theta(n_dk, n_d, alpha, prefix, output_dir)
-    save_phi(n_kw, n_k, beta, prefix, output_dir)
+    # save_z(Z, prefix, output_dir)
+    # save_theta(n_dk, n_d, alpha, prefix, output_dir)
+    # save_phi(n_kw, n_k, beta, prefix, output_dir)
     save_informative_word(W, n_kw, n_k, beta, topn, prefix, output_dir)
 
 

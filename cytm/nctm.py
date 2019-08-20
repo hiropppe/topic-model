@@ -13,6 +13,11 @@ from operator import itemgetter
 from gensim import matutils
 from pathlib import Path
 
+from tqdm import tqdm_notebook
+from tqdm import tqdm
+
+notebook = False
+
 
 def train(corpus,
           K,
@@ -27,8 +32,7 @@ def train(corpus,
           report_every=100,
           prefix="nctm",
           output_dir=".",
-          verbose=False,
-          on_notebook=False):
+          verbose=False):
     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
     W, X, V, S = load_corpus(corpus)
@@ -72,12 +76,11 @@ def train(corpus,
     logging.info("Number of sampling iterations: {:d}".format(n_iter))
     start = time.time()
 
-    if on_notebook:
-        from tqdm import tqdm_notebook as tqdm
+    if notebook:
+        pbar = tqdm_notebook(range(n_iter))
     else:
-        from tqdm import tqdm
+        pbar = tqdm(range(n_iter))
 
-    pbar = tqdm(range(n_iter))
     for i in pbar:
         model.inference(W, X, Z, Y, R, Lw, Lx, n_kw, m_kx, m_rx, n_dk, m_dk,
                         m_dr, n_k, m_k, m_r, n_d, m_d, alpha, beta, gamma, eta)
@@ -105,11 +108,17 @@ def train(corpus,
 def load_corpus(corpus):
     logging.info("Reading topic modeling corpus: {:s}".format(corpus))
     df = pd.read_csv(corpus, header=None)
-    df.dropna(inplace=True)
+    #df.dropna(inplace=True)
+    df.fillna("", inplace=True)
 
     W, X, V, S = [], [], [], []
     word2id, aux2id = {}, {}
-    pbar = tqdm(total=len(df))
+
+    if notebook:
+        pbar = tqdm_notebook(total=len(df))
+    else:
+        pbar = tqdm(total=len(df))
+
     for row in df.iterrows():
         values = row[1].values
         id_doc, id_aux = [], []
@@ -150,14 +159,15 @@ def save(Z, V, S, n_kw, n_dk, n_k, n_d, m_k, m_kx, m_r, m_rx, m_dr, alpha, beta,
 
     output_dir = Path(output_dir)
     save_topic(V, S, n_kw, n_k, m_kx, beta, topn, prefix, output_dir)
-    save_z(Z, prefix, output_dir)
-    save_theta(n_dk, n_d, alpha, prefix, output_dir)
-    save_phi(n_kw, n_k, beta, prefix, output_dir)
+    #save_z(Z, prefix, output_dir)
+    #save_theta(n_dk, n_d, alpha, prefix, output_dir)
+    #save_phi(n_kw, n_k, beta, prefix, output_dir)
     save_informative_word(V, n_kw, n_k, beta, topn, prefix, output_dir)
-    save_rx_prob(S, m_r, m_rx, gamma, prefix, output_dir)
+    #save_rx_prob(S, m_r, m_rx, gamma, prefix, output_dir)
 
 
 def save_topic(V, S, n_kw, n_k, m_kx, beta, topn, prefix, output_dir):
+    logging.info("Writing topics ...")
     output_path = output_dir / (prefix + ".topic")
     K = len(n_kw)
     Lv = n_kw.shape[1]
@@ -199,6 +209,7 @@ def save_phi(n_kw, n_k, beta, prefix, output_dir):
 
 
 def save_informative_word(V, n_kw, n_k, beta, topn, prefix, output_dir):
+    logging.info("Writing important words ...")
     output_path = output_dir / (prefix + ".jlh")
     K = len(n_kw)
     Lv = n_kw.shape[1]
