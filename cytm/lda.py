@@ -7,6 +7,8 @@ from . import lda_c as lda
 from .util import perplexity, EmbeddingCoherence, PMICoherence
 
 from gensim import matutils
+from gensim.corpora.dictionary import Dictionary
+from gensim.models.coherencemodel import CoherenceModel
 from gensim.models.word2vec import LineSentence
 from pathlib import Path
 
@@ -16,10 +18,11 @@ from tqdm import tqdm
 notebook = False
 
 
-def train(corpus,
+def train(input_path,
           k,
           alpha,
           beta,
+          top_words=20,
           wv=None,
           coo_matrix=None,
           coo_word2id=None,
@@ -28,6 +31,9 @@ def train(corpus,
           prefix="lda",
           output_dir="."):
     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
+
+    logging.info("Reading topic modeling corpus: {:s}".format(input_path))
+    corpus = LineSentence(input_path)
 
     D, W, word2id = load_corpus(corpus)
     L = sum(len(d) for d in D)
@@ -51,12 +57,15 @@ def train(corpus,
 
     if coo_matrix is not None:
         logging.info("Initializing PMI Coherence Model...")
-        coherence = PMICoherence(coo_matrix, coo_word2id, W, n_kw, topn=20)
+        coherence = PMICoherence(coo_matrix, coo_word2id, W, n_kw, topn=top_words)
     elif wv is not None:
         logging.info("Initialize Word Embedding Coherence Model...")
-        coherence = EmbeddingCoherence(wv, W, n_kw, topn=20)
+        coherence = EmbeddingCoherence(wv, W, n_kw, topn=top_words)
     else:
+        # use gensim CoherenceModel
         coherence = None
+        dictionary = Dictionary.from_documents(corpus)
+        bow_corpus = [dictionary.doc2bow(doc) for doc in corpus]
 
     logging.info("Running Gibbs sampling inference: ")
     logging.info("Number of sampling iterations: {:d}".format(n_iter))
@@ -72,10 +81,12 @@ def train(corpus,
         if i % report_every == 0:
             ppl = perplexity(L, n_kw, n_k, n_dk, n_d, alpha, beta)
             if coherence is None:
-                pbar.set_postfix(ppl="{:.3f}".format(ppl))
+                cm = CoherenceModel(topics=topics(W, n_kw, top_words),
+                                    corpus=bow_corpus, dictionary=dictionary, coherence='u_mass')
+                coh = cm.get_coherence()
             else:
                 coh = coherence.score()
-                pbar.set_postfix(ppl="{:.3f}".format(ppl), coh="{:.3f}".format(coh))
+            pbar.set_postfix(ppl="{:.3f}".format(ppl), coh="{:.3f}".format(coh))
     elapsed = time.time() - start
     ppl = perplexity(L, n_kw, n_k, n_dk, n_d, alpha, beta)
     if coherence:
@@ -89,10 +100,9 @@ def train(corpus,
 
 
 def load_corpus(corpus):
-    logging.info("Reading topic modeling corpus: {:s}".format(corpus))
     D = []
     W, word2id = [], {}
-    for doc in LineSentence(corpus):
+    for doc in corpus:
         id_doc = []
         for word in doc:
             if word not in word2id:
@@ -124,6 +134,14 @@ def save(W, Z, n_kw, n_dk, n_k, n_d, alpha, beta, prefix, output_dir='.', topn=2
     # save_theta(n_dk, n_d, alpha, prefix, output_dir)
     # save_phi(n_kw, n_k, beta, prefix, output_dir)
     save_informative_word(W, n_kw, n_k, beta, topn, prefix, output_dir)
+
+
+def topics(W, n_kw, topn):
+    topics = []
+    for k in range(len(n_kw)):
+        topn_indices = matutils.argsort(n_kw[k], topn=topn, reverse=True)
+        topics.append([W[w] for w in topn_indices])
+    return topics
 
 
 def save_topic(W, n_kw, n_k, beta, topn, prefix, output_dir):
@@ -205,7 +223,7 @@ def save_informative_word(W, n_kw, n_k, beta, topn, prefix, output_dir):
                 loc = (n_kw[k, w] + beta)/(n_k[k] + V * beta)
                 jlh_scores[k, w] = (glo-loc) * (glo/loc)
             topn_informative_words = matutils.argsort(jlh_scores[k], topn=topn, reverse=True)
-            #print(" ".join(["{:s}*{:.4f}".format(W[w], jlh_scores[k, w])
+            # print(" ".join(["{:s}*{:.4f}".format(W[w], jlh_scores[k, w])
             #                for w in topn_informative_words]), file=fo)
             topics.append((k, [(W[w], float(jlh_scores[k, w])) for w in topn_informative_words]))
         print(json.dumps(topics), file=fo)
