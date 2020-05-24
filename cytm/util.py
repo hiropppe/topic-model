@@ -1,9 +1,12 @@
+import logging
 import numpy as np
-#np.seterr(all="raise")
+# np.seterr(all="raise")
 
 from scipy.special import gammaln
 
 from gensim import matutils
+from gensim.corpora.dictionary import Dictionary
+from gensim.models.coherencemodel import CoherenceModel
 from itertools import combinations
 from tqdm import tqdm
 
@@ -29,6 +32,50 @@ def polyaw(n_kw, n_k, beta):
     for k in range(K):
         likelihood += np.sum(gammaln(n_kw[k, :] + beta) - gammaln(beta))
     return likelihood
+
+
+def get_coherence_model(W, n_kw, top_words, corpus=None, coo_matrix=None, coo_word2id=None, wv=None, verbose=False):
+    if coo_matrix is not None:
+        logging.info("Initializing PMI Coherence Model...")
+        model = PMICoherence(coo_matrix, coo_word2id, W, n_kw, topn=top_words)
+    elif wv is not None:
+        logging.info("Initialize Word Embedding Coherence Model...")
+        model = EmbeddingCoherence(wv, W, n_kw, topn=top_words)
+    else:
+        logging.info("Initializing u_mass Coherence Model...")
+        dictionary = Dictionary.from_documents(corpus)
+        bow_corpus = [dictionary.doc2bow(doc) for doc in corpus]
+        model = UMassCoherenceModel(bow_corpus, dictionary, W, n_kw, topn=top_words, verbose=verbose)
+    return model
+
+
+class UMassCoherenceModel():
+
+    def __init__(self, corpus, dictionary, W, n_kw, topn=20, verbose=False):
+        self.corpus = corpus
+        self.dictionary = dictionary
+        self.W = W
+        self.n_kw = n_kw
+        self.topn = topn
+        self.K = len(n_kw)
+        self.verose = verbose
+
+    def get_topics(self):
+        topics = []
+        for k in range(self.K):
+            topn_indices = matutils.argsort(self.n_kw[k], topn=self.topn, reverse=True)
+            topics.append([self.W[w] for w in topn_indices])
+        return topics
+
+    def score(self):
+        topics = self.get_topics()
+        cm = CoherenceModel(topics=topics,
+                            corpus=self.corpus, dictionary=self.dictionary, coherence='u_mass')
+        if self.verose:
+            coherences = cm.get_coherence_per_topic()
+            for index, topic in enumerate(topics):
+                print(str(index) + ':' + str(coherences[index]) + ':' + ','.join(topic))
+        return cm.get_coherence()
 
 
 class EmbeddingCoherence():

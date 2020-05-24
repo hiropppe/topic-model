@@ -4,11 +4,9 @@ import numpy as np
 import time
 
 from . import lda_c as lda
-from .util import perplexity, EmbeddingCoherence, PMICoherence
+from .util import perplexity, get_coherence_model
 
 from gensim import matutils
-from gensim.corpora.dictionary import Dictionary
-from gensim.models.coherencemodel import CoherenceModel
 from gensim.models.word2vec import LineSentence
 from pathlib import Path
 
@@ -29,13 +27,13 @@ def train(input_path,
           n_iter=1000,
           report_every=100,
           prefix="lda",
-          output_dir="."):
-    logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
-
+          output_dir=".",
+          verbose=False):
     logging.info("Reading topic modeling corpus: {:s}".format(input_path))
+
     corpus = LineSentence(input_path)
 
-    D, W, word2id = load_corpus(corpus)
+    D, W, word2id = read_corpus(corpus)
     L = sum(len(d) for d in D)
     K = k
     Z = assign_random_topic(D, K)
@@ -55,20 +53,12 @@ def train(input_path,
 
     lda.init(D, Z, n_kw, n_dk, n_k, n_d)
 
-    if coo_matrix is not None:
-        logging.info("Initializing PMI Coherence Model...")
-        coherence = PMICoherence(coo_matrix, coo_word2id, W, n_kw, topn=top_words)
-    elif wv is not None:
-        logging.info("Initialize Word Embedding Coherence Model...")
-        coherence = EmbeddingCoherence(wv, W, n_kw, topn=top_words)
-    else:
-        # use gensim CoherenceModel
-        coherence = None
-        dictionary = Dictionary.from_documents(corpus)
-        bow_corpus = [dictionary.doc2bow(doc) for doc in corpus]
+    cm = get_coherence_model(W, n_kw, top_words, corpus=corpus,
+                             coo_matrix=coo_matrix, coo_word2id=coo_word2id, verbose=verbose)
 
     logging.info("Running Gibbs sampling inference: ")
     logging.info("Number of sampling iterations: {:d}".format(n_iter))
+
     start = time.time()
 
     if notebook:
@@ -78,28 +68,23 @@ def train(input_path,
 
     for i in pbar:
         lda.inference(D, Z, L, n_kw, n_dk, n_k, n_d, alpha, beta)
+
         if i % report_every == 0:
             ppl = perplexity(L, n_kw, n_k, n_dk, n_d, alpha, beta)
-            if coherence is None:
-                cm = CoherenceModel(topics=topics(W, n_kw, top_words),
-                                    corpus=bow_corpus, dictionary=dictionary, coherence='u_mass')
-                coh = cm.get_coherence()
-            else:
-                coh = coherence.score()
+            coh = cm.score()
             pbar.set_postfix(ppl="{:.3f}".format(ppl), coh="{:.3f}".format(coh))
+
     elapsed = time.time() - start
+
     ppl = perplexity(L, n_kw, n_k, n_dk, n_d, alpha, beta)
-    if coherence:
-        coh = coherence.score()
-        logging.info("Sampling completed! Elapsed {:.4f} sec ppl={:.3f} coh={:.3f}".format(
-            elapsed, ppl, coh))
-    else:
-        logging.info("Sampling completed! Elapsed {:.4f} sec ppl={:.3f}".format(elapsed, ppl))
+    coh = cm.score()
+    logging.info("Sampling completed! Elapsed {:.4f} sec ppl={:.3f} coh={:.3f}".format(
+        elapsed, ppl, coh))
 
     save(W, Z, n_kw, n_dk, n_k, n_d, alpha, beta, prefix=prefix, output_dir=output_dir)
 
 
-def load_corpus(corpus):
+def read_corpus(corpus):
     D = []
     W, word2id = [], {}
     for doc in corpus:

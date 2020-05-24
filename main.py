@@ -23,24 +23,58 @@ from cytm.nctm import train as nctm
 @click.option("--embedding", default=None)
 @click.option("--coo_prefix", default=None)
 @click.option("--n_iter", "-i", default=1000)
-@click.option("--report_every", default=100)
+@click.option("--report_every", "-r", default=100)
 @click.option("--prefix", default=None)
 @click.option("--output_dir", default=".")
 @click.option("--py", is_flag=True,  default=False)
-def main(corpus, model, k, alpha,  beta, gamma, eta, embedding, coo_prefix, n_iter, report_every, prefix, output_dir, py):
-    logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
+@click.option("--verbose", "-v", is_flag=True,  default=False)
+def main(corpus, model, k, alpha,  beta, gamma, eta, embedding, coo_prefix, n_iter, report_every, prefix, output_dir, py, verbose):
+    if verbose:
+        logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
+    wv = load_wv(embedding)
+
+    coo_matrix, coo_word2id, coo_vocab = load_coocurence_matrix(coo_prefix)
+
+    if prefix is None:
+        prefix = model
+
+    if model == "lda":
+        if py:
+            lda = pylda
+        else:
+            lda = clda
+        beta = beta[0]
+        lda(corpus, k, alpha, beta,
+            wv, coo_matrix, coo_word2id, n_iter, report_every=report_every,
+            prefix=prefix, output_dir=output_dir, verbose=verbose)
+    elif model == "pltm":
+        pltm(corpus, k, alpha, beta, n_iter, report_every=report_every)
+    elif model == "ctm":
+        beta = beta[0]
+        ctm(corpus, k, alpha, beta, gamma, n_iter, report_every=report_every)
+    elif model == "nctm":
+        beta = beta[0]
+        nctm(corpus, k, alpha, beta, gamma, eta, wv, coo_matrix, coo_word2id, n_iter,
+             report_every=report_every, prefix=prefix, output_dir=output_dir)
+    else:
+        raise ValueError("model out of bounds. " + model)
+
+
+def load_wv(embedding):
     if embedding:
         logging.info("Loading Embedding for topic coherence evaluation: {:s}".format(embedding))
         if embedding.endswith(".model"):
             wv = Word2Vec.load(embedding).wv
         else:
             wv = KeyedVectors.load_word2vec_format(embedding)
-    else:
-        wv = None
+        return wv
 
+
+def load_coocurence_matrix(coo_prefix):
     if coo_prefix:
-        logging.info("Loading Co-occurence matrix for topic coherence evaluation: {:s}".format(coo_prefix))
+        logging.info(
+            "Loading Co-occurence matrix for topic coherence evaluation: {:s}".format(coo_prefix))
         inp_csc_path = coo_prefix + ".csc"
         inp_token2id_path = coo_prefix + ".token2id"
         inp_vocab_path = coo_prefix + ".vocab"
@@ -64,29 +98,7 @@ def main(corpus, model, k, alpha,  beta, gamma, eta, embedding, coo_prefix, n_it
         coo_word2id = None
         coo_vocab = None
 
-    if prefix is None:
-        prefix = model
-
-    if model == "lda":
-        if py:
-            lda = pylda
-        else:
-            lda = clda
-        beta = beta[0]
-        lda(corpus, k, alpha, beta,
-            wv, coo_matrix, coo_word2id, n_iter, report_every=report_every,
-            prefix=prefix, output_dir=output_dir)
-    elif model == "pltm":
-        pltm(corpus, k, alpha, beta, n_iter, report_every=report_every)
-    elif model == "ctm":
-        beta = beta[0]
-        ctm(corpus, k, alpha, beta, gamma, n_iter, report_every=report_every)
-    elif model == "nctm":
-        beta = beta[0]
-        nctm(corpus, k, alpha, beta, gamma, eta, wv, coo_matrix, coo_word2id, n_iter,
-             report_every=report_every, prefix=prefix, output_dir=output_dir)
-    else:
-        raise ValueError("model out of bounds. " + model)
+    return coo_matrix, coo_word2id, coo_vocab
 
 
 if __name__ == '__main__':
