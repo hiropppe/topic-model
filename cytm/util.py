@@ -34,7 +34,8 @@ def polyaw(n_kw, n_k, beta):
     return likelihood
 
 
-def get_coherence_model(W, n_kw, top_words, corpus=None, coo_matrix=None, coo_word2id=None, wv=None, verbose=False):
+def get_coherence_model(W, n_kw, top_words, coherence_model, test_texts=None, corpus=None, coo_matrix=None, coo_word2id=None, wv=None, verbose=False):
+
     if coo_matrix is not None:
         logging.info("Initializing PMI Coherence Model...")
         model = PMICoherence(coo_matrix, coo_word2id, W, n_kw, topn=top_words)
@@ -42,16 +43,21 @@ def get_coherence_model(W, n_kw, top_words, corpus=None, coo_matrix=None, coo_wo
         logging.info("Initialize Word Embedding Coherence Model...")
         model = EmbeddingCoherence(wv, W, n_kw, topn=top_words)
     else:
-        logging.info("Initializing u_mass Coherence Model...")
+        logging.info(f"Initializing {coherence_model} Coherence Model...")
         dictionary = Dictionary.from_documents(corpus)
-        bow_corpus = [dictionary.doc2bow(doc) for doc in corpus]
-        model = UMassCoherenceModel(bow_corpus, dictionary, W, n_kw, topn=top_words, verbose=verbose)
+        if test_texts is not None:
+            model = GensimCoherenceModel(coherence_model, test_texts, None, dictionary, W, n_kw, topn=top_words, verbose=verbose)
+        else:
+            bow_corpus = [dictionary.doc2bow(doc) for doc in corpus]
+            model = GensimCoherenceModel(coherence_model, None, bow_corpus, dictionary, W, n_kw, topn=top_words, verbose=verbose)
     return model
 
 
-class UMassCoherenceModel():
+class GensimCoherenceModel():
 
-    def __init__(self, corpus, dictionary, W, n_kw, topn=20, verbose=False):
+    def __init__(self, model, texts, corpus, dictionary, W, n_kw, topn=20, verbose=False):
+        self.model = model
+        self.texts = texts
         self.corpus = corpus
         self.dictionary = dictionary
         self.W = W
@@ -69,8 +75,12 @@ class UMassCoherenceModel():
 
     def score(self):
         topics = self.get_topics()
-        cm = CoherenceModel(topics=topics,
-                            corpus=self.corpus, dictionary=self.dictionary, coherence='u_mass')
+        if self.model == 'u_mass':
+            cm = CoherenceModel(topics=topics,
+                                corpus=self.corpus, dictionary=self.dictionary, coherence=self.model)
+        else:
+            cm = CoherenceModel(topics=topics,
+                                texts=self.texts, dictionary=self.dictionary, coherence=self.model)
         if self.verose:
             coherences = cm.get_coherence_per_topic()
             for index, topic in enumerate(topics):

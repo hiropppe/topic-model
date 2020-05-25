@@ -21,6 +21,8 @@ def train(input_path,
           alpha,
           beta,
           top_words=20,
+          test_texts=None,
+          coherence_model="u_mass",
           wv=None,
           coo_matrix=None,
           coo_word2id=None,
@@ -53,7 +55,7 @@ def train(input_path,
 
     lda.init(D, Z, n_kw, n_dk, n_k, n_d)
 
-    cm = get_coherence_model(W, n_kw, top_words, corpus=corpus,
+    cm = get_coherence_model(W, n_kw, top_words, coherence_model, test_texts=test_texts, corpus=corpus,
                              coo_matrix=coo_matrix, coo_word2id=coo_word2id, verbose=verbose)
 
     logging.info("Running Gibbs sampling inference: ")

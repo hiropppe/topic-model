@@ -20,6 +20,9 @@ from cytm.nctm import train as nctm
 @click.option("--beta", "-b", default=(0.01,), type=float, multiple=True)
 @click.option("--gamma", "-g", default=0.01)
 @click.option("--eta", "-e", default=1.0)
+@click.option("--top_words", "-topn", default=20)
+@click.option("--coherence_model", "-cm", default="u_mass", type=click.Choice(["u_mass", "c_v", "c_uci", "c_npmi"]))
+@click.option("--test_data", default=None)
 @click.option("--embedding", default=None)
 @click.option("--coo_prefix", default=None)
 @click.option("--n_iter", "-i", default=1000)
@@ -28,13 +31,33 @@ from cytm.nctm import train as nctm
 @click.option("--output_dir", default=".")
 @click.option("--py", is_flag=True,  default=False)
 @click.option("--verbose", "-v", is_flag=True,  default=False)
-def main(corpus, model, k, alpha,  beta, gamma, eta, embedding, coo_prefix, n_iter, report_every, prefix, output_dir, py, verbose):
+def main(corpus,
+         model,
+         k,
+         alpha,
+         beta,
+         gamma,
+         eta,
+         top_words,
+         coherence_model,
+         test_data,
+         embedding,
+         coo_prefix,
+         n_iter,
+         report_every,
+         prefix,
+         output_dir,
+         py,
+         verbose):
     if verbose:
         logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
     wv = load_wv(embedding)
 
     coo_matrix, coo_word2id, coo_vocab = load_coocurence_matrix(coo_prefix)
+
+    if test_data is not None:
+        test_texts = [text[:-1].split() for text in open(test_data)]
 
     if prefix is None:
         prefix = model
@@ -45,8 +68,8 @@ def main(corpus, model, k, alpha,  beta, gamma, eta, embedding, coo_prefix, n_it
         else:
             lda = clda
         beta = beta[0]
-        lda(corpus, k, alpha, beta,
-            wv, coo_matrix, coo_word2id, n_iter, report_every=report_every,
+        lda(corpus, k, alpha, beta, top_words=top_words, coherence_model=coherence_model, test_texts=test_texts,
+            wv=wv, coo_matrix=coo_matrix, coo_word2id=coo_word2id, n_iter=n_iter, report_every=report_every,
             prefix=prefix, output_dir=output_dir, verbose=verbose)
     elif model == "pltm":
         pltm(corpus, k, alpha, beta, n_iter, report_every=report_every)
