@@ -16,7 +16,7 @@ from tqdm import tqdm
 notebook = False
 
 
-def train(input_path,
+def train(input,
           k,
           alpha,
           beta,
@@ -30,10 +30,16 @@ def train(input_path,
           report_every=100,
           prefix="lda",
           output_dir=".",
+          from_streamlit=False,
           verbose=False):
-    logging.info("Reading topic modeling corpus: {:s}".format(input_path))
 
-    corpus = LineSentence(input_path)
+    if isinstance(input, list):
+        corpus = input
+        print_cm = False
+    else:
+        logging.info("Reading topic modeling corpus: {:s}".format(input))
+        corpus = LineSentence(input)
+        print_cm = True
 
     D, W, word2id = read_corpus(corpus)
     L = sum(len(d) for d in D)
@@ -55,8 +61,11 @@ def train(input_path,
 
     lda.init(D, Z, n_kw, n_dk, n_k, n_d)
 
-    cm = get_coherence_model(W, n_kw, top_words, coherence_model, test_texts=test_texts, corpus=corpus,
-                             coo_matrix=coo_matrix, coo_word2id=coo_word2id, verbose=verbose)
+    if print_cm:
+        cm = get_coherence_model(W, n_kw, top_words, coherence_model, test_texts=test_texts, corpus=corpus,
+                                 coo_matrix=coo_matrix, coo_word2id=coo_word2id, verbose=verbose)
+    else:
+        cm = None
 
     logging.info("Running Gibbs sampling inference: ")
     logging.info("Number of sampling iterations: {:d}".format(n_iter))
@@ -64,26 +73,56 @@ def train(input_path,
     start = time.time()
 
     if notebook:
-        pbar = tqdm_notebook(range(n_iter))
+        pbar = tqdm_notebook(total=n_iter)
     else:
-        pbar = tqdm(range(n_iter))
+        pbar = tqdm(total=n_iter)
 
-    for i in pbar:
+    if from_streamlit:
+        import streamlit as st
+        pbar_text = st.empty()
+        pbar = st.progress(0)
+
+    ppl = 0.0
+    coh = 0.0
+    for i in range(n_iter):
         lda.inference(D, Z, L, n_kw, n_dk, n_k, n_d, alpha, beta)
 
         if i % report_every == 0:
             ppl = perplexity(L, n_kw, n_k, n_dk, n_d, alpha, beta)
-            coh = cm.score()
-            pbar.set_postfix(ppl="{:.3f}".format(ppl), coh="{:.3f}".format(coh))
+            if cm:
+                coh = cm.score()
+            else:
+                coh = None
+
+        update_progress(i, pbar, pbar_text, ppl, coh)
 
     elapsed = time.time() - start
 
     ppl = perplexity(L, n_kw, n_k, n_dk, n_d, alpha, beta)
-    coh = cm.score()
-    logging.info("Sampling completed! Elapsed {:.4f} sec ppl={:.3f} coh={:.3f}".format(
-        elapsed, ppl, coh))
+    if cm:
+        coh = cm.score()
+        logging.info("Sampling completed! Elapsed {:.4f} sec ppl={:.3f} coh={:.3f}".format(
+            elapsed, ppl, coh))
+    else:
+        logging.info("Sampling completed! Elapsed {:.4f} sec ppl={:.3f}".format(
+            elapsed, ppl))
 
     save(W, Z, n_kw, n_dk, n_k, n_d, alpha, beta, prefix=prefix, output_dir=output_dir)
+
+
+def update_progress(i, pbar, st_text, ppl, coh):
+    if hasattr(pbar, 'progress'):
+        pbar.progress(i + 1)
+        if coh is not None:
+            st_text.text(f'Iteration {i+1} ppl={ppl} coherence={coh}')
+        else:
+            st_text.text(f'Iteration {i+1} ppl={ppl}')
+    else:
+        pbar.update(n=1)
+        if coh is not None:
+            pbar.set_postfix(ppl="{:.3f}".format(ppl), coh="{:.3f}".format(coh))
+        else:
+            pbar.set_postfix(ppl="{:.3f}".format(ppl))
 
 
 def read_corpus(corpus):
