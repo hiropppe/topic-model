@@ -14,6 +14,7 @@ from tqdm import tqdm_notebook
 from tqdm import tqdm
 
 notebook = False
+from_streamlit = False
 
 
 def train(input,
@@ -30,7 +31,6 @@ def train(input,
           report_every=100,
           prefix="lda",
           output_dir=".",
-          from_streamlit=False,
           verbose=False):
 
     if isinstance(input, list):
@@ -94,7 +94,7 @@ def train(input,
             else:
                 coh = None
 
-        update_progress(i, pbar, pbar_text, ppl, coh)
+        update_progress(i, n_iter, pbar, pbar_text, ppl, coh)
 
     elapsed = time.time() - start
 
@@ -110,9 +110,9 @@ def train(input,
     save(W, Z, n_kw, n_dk, n_k, n_d, alpha, beta, prefix=prefix, output_dir=output_dir)
 
 
-def update_progress(i, pbar, st_text, ppl, coh):
+def update_progress(i, n_iter, pbar, st_text, ppl, coh):
     if hasattr(pbar, 'progress'):
-        pbar.progress(i + 1)
+        pbar.progress(100*(i+1)//n_iter)
         if coh is not None:
             st_text.text(f'Iteration {i+1} ppl={ppl} coherence={coh}')
         else:
@@ -177,13 +177,24 @@ def save_topic(W, n_kw, n_k, beta, topn, prefix, output_dir):
     V = n_kw.shape[1]
     with open(output_path.as_posix(), "w") as fo:
         if notebook:
-            pbar = tqdm_notebook(range(K))
+            pbar = tqdm_notebook(total=K)
         else:
-            pbar = tqdm(range(K))
-        for k in pbar:
+            pbar = tqdm(total=K)
+
+        if from_streamlit:
+            import streamlit as st
+            pbar_text = st.empty()
+            pbar = st.progress(0)
+
+        for k in range(K):
             topn_indices = matutils.argsort(n_kw[k], topn=topn, reverse=True)
             print(" ".join(["{:s}*{:.4f}".format(W[w], ((n_kw[k, w] + beta) /
                                                         (n_k[k] + V * beta))) for w in topn_indices]), file=fo)
+            if hasattr(pbar, 'progress'):
+                pbar.progress(100*(k+1)//K)
+                pbar_text.text(f'Saving topics... {k+1}')
+            else:
+                pbar.update(n=1)
 
 
 def save_theta(n_dk, n_d, alpha, prefix, output_dir):
@@ -238,12 +249,19 @@ def save_informative_word(W, n_kw, n_k, beta, topn, prefix, output_dir):
     with open(output_path.as_posix(), "w") as fo:
         for w in range(V):
             n_w[w] = n_kw[:, w].sum()
+
         if notebook:
-            pbar = tqdm_notebook(range(K))
+            pbar = tqdm_notebook(total=K)
         else:
-            pbar = tqdm(range(K))
+            pbar = tqdm(total=K)
+
+        if from_streamlit:
+            import streamlit as st
+            pbar_text = st.empty()
+            pbar = st.progress(0)
+
         jlh_scores = np.zeros((K, V), dtype=np.float32)
-        for k in pbar:
+        for k in range(K):
             for w in range(V):
                 glo = (n_kw[k, w] + beta)/(n_w[w] + V * beta)
                 loc = (n_kw[k, w] + beta)/(n_k[k] + V * beta)
@@ -252,4 +270,9 @@ def save_informative_word(W, n_kw, n_k, beta, topn, prefix, output_dir):
             # print(" ".join(["{:s}*{:.4f}".format(W[w], jlh_scores[k, w])
             #                for w in topn_informative_words]), file=fo)
             topics.append((k, [(W[w], float(jlh_scores[k, w])) for w in topn_informative_words]))
+            if hasattr(pbar, 'progress'):
+                pbar.progress(100*(k+1)//K)
+                pbar_text.text(f'Calculating JLH... {k+1}')
+            else:
+                pbar.update(n=1)
         print(json.dumps(topics), file=fo)
