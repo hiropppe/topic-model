@@ -58,6 +58,8 @@ def main(corpus,
 
     if test_data is not None:
         test_texts = [text[:-1].split() for text in open(test_data)]
+    else:
+        test_texts = None
 
     if prefix is None:
         prefix = model

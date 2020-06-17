@@ -72,15 +72,7 @@ def train(input,
 
     start = time.time()
 
-    if notebook:
-        pbar = tqdm_notebook(total=n_iter)
-    else:
-        pbar = tqdm(total=n_iter)
-
-    if from_streamlit:
-        import streamlit as st
-        pbar_text = st.empty()
-        pbar = st.progress(0)
+    pbar, pbar_text = get_progress_bar(n_iter)
 
     ppl = 0.0
     coh = 0.0
@@ -157,7 +149,7 @@ def save(W, Z, n_kw, n_dk, n_k, n_d, alpha, beta, prefix, output_dir='.', topn=2
     output_dir = Path(output_dir)
     save_topic(W, n_kw, n_k, beta, topn, prefix, output_dir)
     # save_z(Z, prefix, output_dir)
-    # save_theta(n_dk, n_d, alpha, prefix, output_dir)
+    save_theta(n_dk, n_d, alpha, prefix, output_dir)
     # save_phi(n_kw, n_k, beta, prefix, output_dir)
     save_informative_word(W, n_kw, n_k, beta, topn, prefix, output_dir)
 
@@ -176,16 +168,7 @@ def save_topic(W, n_kw, n_k, beta, topn, prefix, output_dir):
     K = len(n_kw)
     V = n_kw.shape[1]
     with open(output_path.as_posix(), "w") as fo:
-        if notebook:
-            pbar = tqdm_notebook(total=K)
-        else:
-            pbar = tqdm(total=K)
-
-        if from_streamlit:
-            import streamlit as st
-            pbar_text = st.empty()
-            pbar = st.progress(0)
-
+        pbar, pbar_text = get_progress_bar(K)
         for k in range(K):
             topn_indices = matutils.argsort(n_kw[k], topn=topn, reverse=True)
             print(" ".join(["{:s}*{:.4f}".format(W[w], ((n_kw[k, w] + beta) /
@@ -250,15 +233,7 @@ def save_informative_word(W, n_kw, n_k, beta, topn, prefix, output_dir):
         for w in range(V):
             n_w[w] = n_kw[:, w].sum()
 
-        if notebook:
-            pbar = tqdm_notebook(total=K)
-        else:
-            pbar = tqdm(total=K)
-
-        if from_streamlit:
-            import streamlit as st
-            pbar_text = st.empty()
-            pbar = st.progress(0)
+        pbar, pbar_text = get_progress_bar(K)
 
         jlh_scores = np.zeros((K, V), dtype=np.float32)
         for k in range(K):
@@ -276,3 +251,17 @@ def save_informative_word(W, n_kw, n_k, beta, topn, prefix, output_dir):
             else:
                 pbar.update(n=1)
         print(json.dumps(topics), file=fo)
+
+
+def get_progress_bar(n_iter):
+    if from_streamlit:
+        import streamlit as st
+        pbar_text = st.empty()
+        pbar = st.progress(0)
+    elif notebook:
+        pbar_text = None
+        pbar = tqdm_notebook(total=n_iter)
+    else:
+        pbar_text = None
+        pbar = tqdm(total=n_iter)
+    return pbar, pbar_text
