@@ -10,11 +10,11 @@ from cytm.pylda import train as pylda
 from cytm.pltm import train as pltm
 from cytm.ctm import train as ctm
 from cytm.nctm import train as nctm
-
+from cytm.atm import train as atm
 
 @click.command()
 @click.argument("corpus")
-@click.option("--model", "-m", default="lda", type=click.Choice(["lda", "pltm", "ctm", "nctm"]))
+@click.option("--model", "-m", default="lda", type=click.Choice(["lda", "pltm", "ctm", "nctm", "atm"]))
 @click.option("--k", "-k", default=20)
 @click.option("--alpha", "-a", default=0.1)
 @click.option("--beta", "-b", default=(0.01,), type=float, multiple=True)
@@ -25,8 +25,8 @@ from cytm.nctm import train as nctm
 @click.option("--test_data", default=None)
 @click.option("--embedding", default=None)
 @click.option("--coo_prefix", default=None)
-@click.option("--n_iter", "-i", default=1000)
-@click.option("--report_every", "-r", default=100)
+@click.option("--n_iter", "-i", default=100)
+@click.option("--report_every", "-r", default=10)
 @click.option("--prefix", default=None)
 @click.option("--output_dir", default=".")
 @click.option("--py", is_flag=True,  default=False)
@@ -70,18 +70,64 @@ def main(corpus,
         else:
             lda = clda
         beta = beta[0]
-        lda(corpus, k, alpha, beta, top_words=top_words, coherence_model=coherence_model, test_texts=test_texts,
-            wv=wv, coo_matrix=coo_matrix, coo_word2id=coo_word2id, n_iter=n_iter, report_every=report_every,
-            prefix=prefix, output_dir=output_dir, verbose=verbose)
+        lda(corpus,
+            k,
+            alpha,
+            beta,
+            top_words=top_words,
+            coherence_model=coherence_model,
+            test_texts=test_texts,
+            wv=wv,
+            coo_matrix=coo_matrix,
+            coo_word2id=coo_word2id,
+            n_iter=n_iter,
+            report_every=report_every,
+            prefix=prefix,
+            output_dir=output_dir,
+            verbose=verbose)
+    elif model == "atm":
+        beta = beta[0]
+        atm(corpus,
+            k,
+            alpha,
+            beta,
+            top_words=top_words,
+            n_iter=n_iter,
+            report_every=report_every,
+            prefix=prefix,
+            output_dir=output_dir,
+            verbose=verbose)
     elif model == "pltm":
-        pltm(corpus, k, alpha, beta, n_iter, report_every=report_every)
+        pltm(corpus,
+             k,
+             alpha,
+             beta,
+             n_iter,
+             report_every=report_every)
     elif model == "ctm":
         beta = beta[0]
-        ctm(corpus, k, alpha, beta, gamma, n_iter, report_every=report_every)
+        ctm(corpus,
+            k,
+            alpha,
+            beta,
+            gamma,
+            n_iter,
+            report_every=report_every)
     elif model == "nctm":
         beta = beta[0]
-        nctm(corpus, k, alpha, beta, gamma, eta, wv, coo_matrix, coo_word2id, n_iter,
-             report_every=report_every, prefix=prefix, output_dir=output_dir)
+        nctm(corpus,
+             k,
+             alpha,
+             beta,
+             gamma,
+             eta,
+             wv,
+             coo_matrix,
+             coo_word2id,
+             n_iter,
+             report_every=report_every,
+             prefix=prefix,
+             output_dir=output_dir)
     else:
         raise ValueError("model out of bounds. " + model)
 
