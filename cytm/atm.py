@@ -77,7 +77,7 @@ def train(input_csv,
     logging.info("Sampling completed! Elapsed {:.4f} sec ppl={:.3f}".format(
         elapsed, ppl))
 
-    save(vocab, Z, n_kw, n_dk, n_k, n_d, alpha, beta, prefix=prefix, output_dir=output_dir)
+    save(vocab, authors, Z, n_kw, n_dk, n_ak, n_k, n_d, n_a, alpha, beta, prefix=prefix, output_dir=output_dir)
 
 
 def update_progress(i, n_iter, pbar, st_text, ppl):
@@ -141,7 +141,7 @@ def assign_random_author(D, A):
     return X
 
 
-def save(vocab, Z, n_kw, n_dk, n_k, n_d, alpha, beta, prefix, output_dir='.', topn=20):
+def save(vocab, authors, Z, n_kw, n_dk, n_ak, n_k, n_d, n_a, alpha, beta, prefix, output_dir='.', topn=20):
     logging.info("Writing output from the last sample ...")
     logging.info("Number of top topical words: {:d}".format(topn))
 
@@ -150,7 +150,8 @@ def save(vocab, Z, n_kw, n_dk, n_k, n_d, alpha, beta, prefix, output_dir='.', to
     save_z(Z, prefix, output_dir)
     save_theta(n_dk, n_d, alpha, prefix, output_dir)
     # save_phi(n_kw, n_k, beta, prefix, output_dir)
-    save_informative_word(vocab, n_kw, n_k, beta, topn, prefix, output_dir)
+    # save_informative_word(vocab, n_kw, n_k, beta, topn, prefix, output_dir)
+    save_author_topic(authors, n_ak, n_a, alpha, prefix, output_dir)
 
 
 def topics(vocab, n_kw, topn):
@@ -192,6 +193,22 @@ def save_theta(n_dk, n_d, alpha, prefix, output_dir):
         for d in pbar:
             print(" ".join(["{:.4f}".format((n_dk[d, k] + alpha)/(n_d[d] + K * alpha))
                             for k in range(K)]), file=fo)
+
+
+def save_author_topic(authors, n_ak, n_a, alpha, prefix, output_dir):
+    logging.info("Writing author topic distributions ...")
+    output_path = output_dir / (prefix + ".author")
+    S = len(n_ak)
+    K = n_ak.shape[1]
+    with open(output_path.as_posix(), "w") as fo:
+        if notebook:
+            pbar = tqdm_notebook(range(S))
+        else:
+            pbar = tqdm(range(S))
+        for a in pbar:
+            author = authors[a]
+            print(author + "," + " ".join(["{:.4f}".format((n_ak[a, k] + alpha)/(n_a[a] + K * alpha))
+                                           for k in range(K)]), file=fo)
 
 
 def save_z(Z, prefix, output_dir):
