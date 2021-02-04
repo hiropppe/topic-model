@@ -171,7 +171,7 @@ def save_topic(vocab, n_kw, n_k, beta, topn, prefix, output_dir):
         pbar, pbar_text = get_progress_bar(K)
         for k in range(K):
             topn_indices = matutils.argsort(n_kw[k], topn=topn, reverse=True)
-            print(" ".join(["{:s}*{:.4f}".format(vocab[w], ((n_kw[k, w] + beta) /
+            print(" ".join(["{:s}*{:.8f}".format(vocab[w], ((n_kw[k, w] + beta) /
                                                         (n_k[k] + V * beta))) for w in topn_indices]), file=fo)
             if hasattr(pbar, 'progress'):
                 pbar.progress(100*(k+1)//K)
@@ -191,7 +191,7 @@ def save_theta(n_dk, n_d, alpha, prefix, output_dir):
         else:
             pbar = tqdm(range(N))
         for d in pbar:
-            print(" ".join(["{:.4f}".format((n_dk[d, k] + alpha)/(n_d[d] + K * alpha))
+            print(" ".join(["{:.8f}".format((n_dk[d, k] + alpha)/(n_d[d] + K * alpha))
                             for k in range(K)]), file=fo)
 
 
@@ -207,7 +207,7 @@ def save_author_topic(authors, n_ak, n_a, alpha, prefix, output_dir):
             pbar = tqdm(range(S))
         for a in pbar:
             author = authors[a]
-            print(author + "," + " ".join(["{:.4f}".format((n_ak[a, k] + alpha)/(n_a[a] + K * alpha))
+            print(author + "," + " ".join(["{:.8f}".format((n_ak[a, k] + alpha)/(n_a[a] + K * alpha))
                                            for k in range(K)]), file=fo)
 
 
@@ -234,7 +234,7 @@ def save_phi(n_kw, n_k, beta, prefix, output_dir):
         else:
             pbar = tqdm(range(K))
         for k in pbar:
-            print(" ".join(["{:.4f}".format((n_kw[k, w] + beta)/(n_k[k] + V * beta))
+            print(" ".join(["{:.8f}".format((n_kw[k, w] + beta)/(n_k[k] + V * beta))
                             for w in range(V)]), file=fo)
 
 
@@ -258,7 +258,7 @@ def save_informative_word(vocab, n_kw, n_k, beta, topn, prefix, output_dir):
                 loc = (n_kw[k, w] + beta)/(n_k[k] + V * beta)
                 jlh_scores[k, w] = (glo-loc) * (glo/loc)
             topn_informative_words = matutils.argsort(jlh_scores[k], topn=topn, reverse=True)
-            print(" ".join(["{:s}*{:.4f}".format(vocab[w], jlh_scores[k, w])
+            print(" ".join(["{:s}*{:.8f}".format(vocab[w], jlh_scores[k, w])
                 for w in topn_informative_words]), file=fo)
             #topics.append((k, [(vocab[w], float(jlh_scores[k, w])) for w in topn_informative_words]))
             if hasattr(pbar, 'progress'):
