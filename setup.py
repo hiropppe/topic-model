@@ -15,6 +15,7 @@ extensions = [
     Extension('cytm.pltm_c',  sources=['cytm/pltm_c.pyx'],  language="c++", extra_compile_args=["-std=c++11", "-O3", "-mtune=native", "-march=native", "-mfpmath=both"]),
     Extension('cytm.ctm_c',   sources=['cytm/ctm_c.pyx'],   language="c++", extra_compile_args=["-std=c++11", "-O3", "-mtune=native", "-march=native", "-mfpmath=both"]),
     Extension('cytm.nctm_c',  sources=['cytm/nctm_c.pyx'],  language="c++", extra_compile_args=["-std=c++11", "-O3", "-mtune=native", "-march=native", "-mfpmath=both"]),
+    Extension('cytm.sppmi_svd_c',  sources=['cytm/sppmi_svd_c.pyx'],  language="c++", extra_compile_args=["-std=c++11", "-O3", "-mtune=native", "-march=native", "-mfpmath=both"]),
 ]
 
 #core.setup(
