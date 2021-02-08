@@ -11,6 +11,7 @@ from tqdm import tqdm
 
 from gensim.corpora import Dictionary
 
+from scipy.sparse.linalg import svds
 from sklearn.feature_extraction.text import CountVectorizer
 
 from . import sppmi_svd_c
@@ -26,6 +27,7 @@ def main(path):
     has_abs_dis = False
     has_cds = False
     eps = 1e-8
+    K = 100
 
     cv = CountVectorizer(binary=True, lowercase=True, max_features=max_features)
     doc2token = cv.fit_transform((tokens.strip() for tokens in tqdm(df['tokens'].values)))
@@ -34,24 +36,32 @@ def main(path):
     token2id = cv.vocabulary_
     vocab = cv.get_feature_names()
 
-    C = np.dot(doc2token.T, doc2token).toarray()
+    #M = np.dot(doc2token.T, doc2token).toarray()
+    M = doc2token.toarray()
 
     if threshold:
-        C = threshold_cooccur(C, threshold)
+        M = threshold_cooccur(M, threshold)
 
-    M = sppmi_svd_c.sppmi(C, shift, has_abs_dis, has_cds, eps)
+    W = sppmi_svd_c.sppmi(M, shift, has_abs_dis, has_cds, eps)
 
-    print(M)
+    tmpdir = Path(tempfile.mkdtemp())
+    np.save(tmpdir / 'w.npy', W)
+
+    U, S, V = svds(W, k=K)
+    #U, S, V = np.linalg.svd(W)
+
+    word_vec = np.dot(U, np.sqrt(np.diag(S)))
+    np.save(tmpdir / 'wv.npy', word_vec[:, :K])
 
 
-def threshold_cooccur(C, threshold):
+def threshold_cooccur(M, threshold):
     """ truncate cooccur matrix by threshold value
-    c = c if c > threshold else 0
+    m = m if m > threshold else 0
     :return: fixed cooccur matrix C
     """
-    C = np.where(C > threshold, C, 0)
+    M = np.where(M > threshold, M, 0)
 
-    return C
+    return M
 
 
 if __name__ == '__main__':
