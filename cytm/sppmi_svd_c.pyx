@@ -60,7 +60,8 @@ def sppmi(np.ndarray[FLOAT_t, ndim=2] M not None,
     cdef np.ndarray[FLOAT_t, ndim=2] Y = np.zeros((V, C), dtype=np.float32)
 
     cdef float N
-    cdef np.ndarray[FLOAT_t, ndim=1] Nc = np.zeros(V, dtype=np.float32)
+    cdef np.ndarray[FLOAT_t, ndim=1] Nw = np.zeros(V, dtype=np.float32)
+    cdef np.ndarray[FLOAT_t, ndim=1] Nc = np.zeros(C, dtype=np.float32)
     cdef int n1, n2
     cdef float d
     cdef float N_ij
@@ -85,6 +86,7 @@ def sppmi(np.ndarray[FLOAT_t, ndim=2] M not None,
         # Context Distributional Smoothing
         N = N**0.75
         Nw = Nw**0.75
+        Nc = Nc**0.75
 
     k = 1
     pbar = tqdm(total=L) 

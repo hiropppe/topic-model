@@ -1,15 +1,9 @@
-import logging
-import math
 import numpy as np
 import pandas as pd
-import pathlib
-import scipy as sci
 import tempfile
 
 from pathlib import Path
 from tqdm import tqdm
-
-from gensim.corpora import Dictionary
 
 from scipy.sparse.linalg import svds
 from sklearn.feature_extraction.text import CountVectorizer
@@ -18,6 +12,8 @@ from . import sppmi_svd_c
 
 
 def main(path):
+    global M, Y, D, W, R
+
     df = pd.read_csv(path)
     df.dropna(subset=['tokens'], inplace=True)
 
@@ -33,25 +29,28 @@ def main(path):
     doc2token = cv.fit_transform((tokens.strip() for tokens in tqdm(df['tokens'].values)))
     doc2token = doc2token.astype(np.float32)
 
-    token2id = cv.vocabulary_
-    vocab = cv.get_feature_names()
-
-    #M = np.dot(doc2token.T, doc2token).toarray()
+    #M = np.dot(doc2token.T, doc2token).toarray() # for wv
     M = doc2token.toarray()
 
     if threshold:
         M = threshold_cooccur(M, threshold)
 
-    W = sppmi_svd_c.sppmi(M, shift, has_abs_dis, has_cds, eps)
+    Y = sppmi_svd_c.sppmi(M, shift, has_abs_dis, has_cds, eps)
+
+    U, S, V = svds(Y, k=K)
+
+    #word_vec = np.dot(U, np.sqrt(np.diag(S)))
+    #np.save(tmpdir / 'wv.npy', word_vec[:, :K])
+
+    D = U
+    W = V.T
+    R = np.linalg.solve(np.dot(W.T, W), W.T)
 
     tmpdir = Path(tempfile.mkdtemp())
-    np.save(tmpdir / 'w.npy', W)
-
-    U, S, V = svds(W, k=K)
-    #U, S, V = np.linalg.svd(W)
-
-    word_vec = np.dot(U, np.sqrt(np.diag(S)))
-    np.save(tmpdir / 'wv.npy', word_vec[:, :K])
+    np.save(tmpdir / 'Y.npy', Y)
+    np.save(tmpdir / 'D.npy', D)
+    np.save(tmpdir / 'W.npy', W)
+    np.save(tmpdir / 'R.npy', R)
 
 
 def threshold_cooccur(M, threshold):
