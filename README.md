@@ -1,5 +1,5 @@
-## Topic Models in Cython
-**Learning implementation** of Topic (or Document) Models.
+## Topic Models
+**Learning implementation** of Topic (or Document) Models in Cython.
 
 ### Probabilistic Topic Models (Collapsed Gibbs sampling)
 - LDA (Latent Dirichlet Allocation)
