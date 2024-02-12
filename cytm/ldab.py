@@ -1,13 +1,13 @@
+# -*- coding: utf-8 -*-
 import logging
 import numpy as np
 import numpy.random as npr
 import time
 
 from . import ldab_c as ldab
-from .util import init_input, read_corpus, PBar, norm, cnorm, rnorm
+from .util import detect_input, read_corpus, Progress, norm, cnorm, rnorm
 
 from gensim import matutils
-from gensim.models.word2vec import LineSentence
 
 from scipy.special import gammaln
 
@@ -23,9 +23,7 @@ class LDAb():
                  a0 = 2.0,
                  a1 = 1.0,
                  n_iter=1000,
-                 report_every=100,
-                 test_corpus=None,
-                 verbose=False):
+                 report_every=100):
         """ LDAb: LDA with a background distribution
         Parameters
         ----------
@@ -42,7 +40,7 @@ class LDAb():
         n_iter: int, optional
             number of Gibbs iterations (default 1000)
         """
-        self.corpus = init_input(corpus)
+        self.corpus = detect_input(corpus)
         self.K = K
         self.alpha = alpha
         self.beta = beta
@@ -74,7 +72,7 @@ class LDAb():
         logging.info(f"Number of sampling iterations: {n_iter}")
 
         ppl = 0.0
-        pbar = PBar(n_iter)
+        pbar = Progress(n_iter)
         start = time.time()
         for i in range(n_iter):
             ldab.gibbs(self.W,

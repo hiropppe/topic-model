@@ -5,101 +5,92 @@ import time
 import pandas as pd
 
 from . import pltm_c as model
-from . import util
-
-from gensim import matutils
-from tqdm import tqdm
-
-
-def train(corpus, K, alpha, beta, n_iter, report_every=100):
-    logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
-
-    T, D, W, word2id = load_corpus(corpus)
-    Tn = len(T)
-    L = [sum(len(d) for d in D[t]) for t in T]
-    Z = assign_random_topic(T, D, K)
-    N = len(D[0])
-    V = [len(W[t]) for t in T]
-
-    if len(beta) == 1:
-        beta = [beta[0] for _ in T]
-    beta = np.array(beta)
-
-    if len(beta) != len(T):
-        raise ValueError("number of parameter betas and document types does not match.")
-
-    logging.info("Corpus size: {:d} docs, {:s} words".format(N, str(L)))
-    logging.info("Vocabuary size: {:s}".format(str(V)))
-    logging.info("Number of topics: {:d}".format(K))
-    logging.info("alpha: {:.3f}".format(alpha))
-    logging.info("beta: {:s}".format(str(beta)))
-
-    n_tkw = [np.zeros((K, V[t]), dtype=np.int32) for t in T]  # number of word w assigned to topic k
-    n_tdk = np.zeros((Tn, N, K), dtype=np.int32)  # number of word in document d assigned to topic k
-    n_tk = np.zeros((Tn, K), dtype=np.int32)  # total number of words assigned to topic k
-    n_td = np.zeros((Tn, N), dtype=np.int32)  # number of word in document (document length)
-
-    model.init(D, Z, n_tkw, n_tdk, n_tk, n_td)
-    logging.info("Running Gibbs sampling inference: ")
-    logging.info("Number of sampling iterations: {:d}".format(n_iter))
-    start = time.time()
-    pbar = tqdm(range(n_iter))
-    for i in pbar:
-        model.inference(D, Z, L, n_tkw, n_tdk, n_tk, n_td, alpha, beta)
-        if i % report_every == 0:
-            pbar.set_postfix(ppl="{:.3f}".format(util.ppl(L[0], n_tkw[0], n_tk[0], n_tdk[0], n_td[0], alpha, beta[0])))
-    elapsed = time.time() - start
-    logging.info("Sampling completed! Elapsed {:.4f} sec ppl={:.3f}".format(elapsed, util.ppl(L[0], n_tkw[0], n_tk[0], n_tdk[0], n_td[0], alpha, beta[0])))
-    save(K, W, n_tkw, prefix='test')
+from .util import (
+    detect_input,
+    read_corpus,
+    perplexity,
+    assign_random_topic,
+    draw_phi,
+    draw_theta,
+    get_topics,
+    Progress
+)
 
 
-def load_corpus(corpus):
-    logging.info("Reading topic modeling corpus: {:s}".format(corpus))
-    df = pd.read_csv(corpus)
-    df.dropna(inplace=True)
+class PLTM():
 
-    T = list(range(len(df.columns)))
-    D = [[] for _ in T]
-    W = [[] for _ in T]
-    word2id = [{} for _ in T]
-    pbar = tqdm(total=len(df))
-    for row in df.iterrows():
-        values = row[1].values
-        for t in T:
-            doc = values[t].split()
-            id_doc = []
-            for word in doc:
-                if word not in word2id[t]:
-                    word2id[t][word] = len(W[t])
-                    W[t].append(word)
-                id_doc.append(word2id[t][word])
-            D[t].append(np.array(id_doc, dtype=np.int32))
-        pbar.update(n=1)
+    def __init__(self,
+                 *corpuses,
+                 K=20,
+                 alpha=0.1,
+                 beta=0.01,
+                 n_iter=1000,
+                 report_every=100):
 
-    for t in T:
-        W[t] = np.array(W[t], dtype=np.unicode_)
+        self.K = K
+        self.alpha = alpha
 
-    return T, D, W, word2id
+        self.T = len(corpuses)
+        self.W, self.vocab, self.word2id = [], [], []
+        self.Z = []
+        self.V, self.N = [], []
+        for t, corpus in enumerate(corpuses):
+            corpus = detect_input(corpus)
 
+            W, vocab, word2id = read_corpus(corpus)
+            Z = assign_random_topic(W, K)
 
-def assign_random_topic(T, D, K):
-    logging.info("Randomly initializing topic assignments ...")
-    Z = [[] for _ in T]
-    for t in T:
-        for d in D[t]:
-            Z[t].append(np.random.randint(K, size=len(d)))
-    return Z
+            V = len(vocab)
+            N = sum(len(d) for d in W)
 
+            self.W.append(W)
+            self.vocab.append(vocab)
+            self.word2id.append(word2id)
+            self.Z.append(Z)
+            self.V.append(V)
+            self.N.append(N)
 
-def save(K, W, n_kw, prefix, output_dir='./', topn=20):
-    logging.info("Writing output from the last sample ...")
-    logging.info("Number of top topical words: {:d}".format(topn))
-    save_top_topical_words(K, W, n_kw, topn)
+        self.D = len(self.W[0])
+        self.beta = np.array([beta]*self.T)
 
+        logging.info(f"Corpus size: {self.D} docs, {self.N[0]} words")
+        logging.info(f"  Vocabuary size: {self.V[0]}")
+        logging.info(f"  Number of topics: {K}")
+        logging.info(f"  alpha: {alpha:.3f}")
+        logging.info(f"  beta: {beta:.3f}")
 
-def save_top_topical_words(K, W, n_tkw, topn):
-    for t in range(len(W)):
-        print("T={:d}".format(t))
-        for k in range(K):
-            topn_indices = matutils.argsort(n_tkw[t][k], topn=topn, reverse=True)
-            print("  K={:d} {:s}".format(k, ' '.join(W[t][topn_indices])))
+        for t in range(1, self.T):
+            logging.info(f"  Side Information[{t}] size: {self.N[t]} words")
+            logging.info(f"    Vocabuary size: {self.V[t]}")
+
+        self.n_kw = [np.zeros((self.K, self.V[t]), dtype=np.int32) for t in range(self.T)]  # number of word w assigned to topic k
+        self.n_dk = np.zeros((self.T, self.D, self.K), dtype=np.int32)  # number of word in document d assigned to topic k
+        self.n_k = np.zeros((self.T, self.K), dtype=np.int32)  # total number of words assigned to topic k
+        self.n_d = np.zeros((self.T, self.D), dtype=np.int32)  # number of word in document (document length)
+
+        model.init(self.W, self.Z, self.n_kw, self.n_dk, self.n_k, self.n_d)
+
+        logging.info("Running Gibbs sampling inference")
+        logging.info(f"Number of sampling iterations: {n_iter}")
+
+        start = time.time()
+        pbar = Progress(n_iter)
+        for i in range(n_iter):
+            model.inference(self.W, self.Z, self.N, self.n_kw, self.n_dk, self.n_k, self.n_d, self.alpha, self.beta)
+            if i % report_every == 0:
+                ppl = perplexity(self.N[0], self.n_kw[0], self.n_dk[0], self.alpha, self.beta[0])
+            pbar.update(ppl)
+        
+        elapsed = time.time() - start
+        ppl = perplexity(self.N[0], self.n_kw[0], self.n_dk[0], self.alpha, self.beta[0])
+        logging.info(f"Sampling completed! Elapsed {elapsed:.4f} sec ppl={ppl:.3f}")
+
+        self.__params = {}
+        self.__params['theta'] = draw_theta(self.n_dk[0], self.beta[0])
+        self.__params['phi'] = draw_phi(self.n_kw[0], self.alpha)
+    
+    def get_topics(self, topn=10):
+        return get_topics(self.n_kw[0], self.vocab[0], self.beta, topn=topn)
+    
+    def __getitem__(self, key):
+        return self.__params[key]

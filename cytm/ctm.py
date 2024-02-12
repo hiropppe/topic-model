@@ -5,111 +5,88 @@ import time
 import pandas as pd
 
 from . import ctm_c as model
-from . import util
-
-from gensim import matutils
-from tqdm import tqdm
-
-
-def train(corpus, K, alpha, beta, gamma, n_iter, report_every=100):
-    logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
-
-    W, X, V, S = load_corpus(corpus)
-    Lv, Ls = len(V), len(S)
-    Lw, Lx = sum(len(d) for d in W), sum(len(d) for d in X)
-    Z, Y = assign_random_topic(W, X, K)
-    N = len(W)
-
-    logging.info("Corpus size: {:d} docs, {:s} words".format(N, str(Lw)))
-    logging.info("Vocabuary size: {:d}".format(Lv))
-    logging.info("Number of topics: {:d}".format(K))
-    logging.info("alpha: {:.3f}".format(alpha))
-    logging.info("beta: {:.3f}".format(beta))
-    logging.info("gamma: {:.3f}".format(gamma))
-
-    n_kw = np.zeros((K, Lv), dtype=np.int32)  # number of word w assigned to topic k
-    n_dk = np.zeros((N, K), dtype=np.int32)  # number of word in document d assigned to topic k
-    n_k = np.zeros((K), dtype=np.int32)  # total number of words assigned to topic k
-    n_d = np.zeros((N), dtype=np.int32)  # number of word in document (document length)
-    m_kx = np.zeros((K, Ls), dtype=np.int32)  # number of aux word x assigned to topic k
-    m_dk = np.zeros((N, K), dtype=np.int32)  # number of aux word in document d assigned to topic k
-    m_k = np.zeros((K), dtype=np.int32)  # total number of aux words assigned to topic k
-    m_d = np.zeros((N), dtype=np.int32)  # number of aux word in document (document length)
-
-    model.init(W, X, Z, Y, n_kw, m_kx, n_dk, m_dk, n_k, m_k, n_d, m_d)
-    logging.info("Running Gibbs sampling inference: ")
-    logging.info("Number of sampling iterations: {:d}".format(n_iter))
-    start = time.time()
-    pbar = tqdm(range(n_iter))
-    for i in pbar:
-        model.inference(W, X, Z, Y, Lw, Lx, n_kw, m_kx, n_dk, m_dk, n_k, m_k, n_d, m_d, alpha, beta, gamma)
-        if i % report_every == 0:
-            pbar.set_postfix(ppl="{:.3f}".format(util.ppl(Lw, n_kw, n_k, n_dk, n_d, alpha, beta)))
-    elapsed = time.time() - start
-    logging.info("Sampling completed! Elapsed {:.4f} sec ppl={:.3f}".format(elapsed, util.ppl(Lw, n_kw, n_k, n_dk, n_d, alpha, beta)))
-    save(K, V, S, n_kw, m_kx, prefix='test')
+from .util import (
+    detect_input,
+    read_corpus,
+    perplexity,
+    assign_random_topic,
+    draw_phi,
+    draw_theta,
+    get_topics,
+    Progress
+)
 
 
-def load_corpus(corpus):
-    logging.info("Reading topic modeling corpus: {:s}".format(corpus))
-    df = pd.read_csv(corpus)
-    df.dropna(inplace=True)
+class CTM():
 
-    W, X, V, S = [], [], [], []
-    word2id, aux2id = {}, {}
-    pbar = tqdm(total=len(df))
-    for row in df.iterrows():
-        values = row[1].values
-        id_doc, id_aux = [], []
-        for w in values[0].split():
-            if w not in word2id:
-                word2id[w] = len(V)
-                V.append(w)
-            id_doc.append(word2id[w])
-        W.append(np.array(id_doc, dtype=np.int32))
+    def __init__(self,
+                 corpus,
+                 side_information,
+                 K=20,
+                 alpha=0.1,
+                 beta=0.01,
+                 gamma=0.01,
+                 n_iter=1000,
+                 report_every=100):
+        corpus = detect_input(corpus)
+        side_information = detect_input(side_information)
+        self.K = K
+        self.alpha = alpha
+        self.beta = beta
+        self.gamma = gamma
 
-        for x in values[1].split():
-            if x not in aux2id:
-                aux2id[x] = len(S)
-                S.append(x)
-            id_aux.append(aux2id[x])
-        X.append(np.array(id_aux, dtype=np.int32))
-        pbar.update(n=1)
+        self.W, self.vocab, self.word2id = read_corpus(corpus)
+        self.X, self.side_vocab, self.side2id = read_corpus(side_information)
+        self.Z = assign_random_topic(self.W, self.K)
+        self.Y = assign_random_topic(self.X, self.K)
 
-    V = np.array(V, dtype=np.unicode_)
-    S = np.array(S, dtype=np.unicode_)
+        self.D = len(self.W)
+        self.V, self.S = len(self.vocab), len(self.side_vocab)
+        self.N, self.M = sum(len(d) for d in self.W), sum(len(d) for d in self.X)
 
-    return W, X, V, S
+        logging.info(f"Corpus size: {self.D} docs, {self.N} words, {self.M} side information words")
+        logging.info(f"Vocabuary size: {self.V}")
+        logging.info(f"Side information size: {self.S}")
+        logging.info(f"Number of topics: {self.K}")
 
+        logging.info(f"alpha: {self.alpha:.3f}")
+        logging.info(f"beta: {self.beta:.3f}")
+        logging.info(f"gamma: {self.gamma:.3f}")
 
-def assign_random_topic_(W, K):
-    logging.info("Randomly initializing topic assignments ...")
-    Z = []
-    for w in W:
-        #Z.append(np.random.randint(K, size=len(w), dtype=np.int32).tolist())
-        Z.append(np.random.randint(K, size=len(w)))
-    return Z
+        self.n_kw = np.zeros((self.K, self.V), dtype=np.int32)  # number of word w assigned to topic k
+        self.n_dk = np.zeros((self.D, self.K), dtype=np.int32)  # number of word in document d assigned to topic k
+        self.n_k = np.zeros((self.K), dtype=np.int32)  # total number of words assigned to topic k
+        self.n_d = np.zeros((self.D), dtype=np.int32)  # number of word in document (document length)
+        self.m_kx = np.zeros((self.K, self.S), dtype=np.int32)  # number of aux word x assigned to topic k
+        self.m_dk = np.zeros((self.D, self.K), dtype=np.int32)  # number of aux word in document d assigned to topic k
+        self.m_k = np.zeros((self.K), dtype=np.int32)  # total number of aux words assigned to topic k
+        self.m_d = np.zeros((self.D), dtype=np.int32)  # number of aux word in document (document length)
 
+        model.init(self.W, self.X, self.Z, self.Y, self.n_kw, self.m_kx, self.n_dk, self.m_dk, self.n_k, self.m_k, self.n_d, self.m_d)
 
-def assign_random_topic(W, X, K):
-    logging.info("Randomly initializing topic assignments ...")
-    Z, Y = [], []
-    for i in range(len(W)):
-        Z.append(np.random.randint(K, size=len(W[i]), dtype=np.int32).tolist())
-        Y.append(np.random.randint(K, size=len(X[i]), dtype=np.int32).tolist())
-    return Z, Y
+        logging.info("Running Gibbs sampling inference: ")
+        logging.info(f"Number of sampling iterations: {n_iter}")
 
+        start = time.time()
+        pbar = Progress(n_iter)
+        for i in range(n_iter):
+            model.inference(self.W, self.X, self.Z, self.Y, self.N, self.M,
+                            self.n_kw, self.m_kx, self.n_dk, self.m_dk, self.n_k, self.m_k, self.n_d, self.m_d,
+                            self.alpha, self.beta, self.gamma)
+            if i % report_every == 0:
+                ppl = perplexity(self.N, self.n_kw, self.n_dk, self.alpha, self.beta)
+            pbar.update(ppl)
 
-def save(K, V, S, n_kw, m_kx, prefix, output_dir='./', topn=20):
-    logging.info("Writing output from the last sample ...")
-    logging.info("Number of top topical words: {:d}".format(topn))
-    save_top_topical_words(K, V, S, n_kw, m_kx, topn)
+        elapsed = time.time() - start
+        ppl = perplexity(self.N, self.n_kw, self.n_dk, self.alpha, self.beta)
+        logging.info(f"Sampling completed! Elapsed {elapsed:.4f} sec ppl={ppl:.3f}")
+    
+        self.__params = {}
+        self.__params['theta'] = draw_theta(self.n_dk, self.alpha)
+        self.__params['phi'] = draw_phi(self.n_kw, self.beta)
 
-
-def save_top_topical_words(K, V, S, n_kw, m_kx, topn):
-    for k in range(K):
-        topn_vocab_indices = matutils.argsort(n_kw[k], topn=topn, reverse=True)
-        topn_aux_indices = matutils.argsort(m_kx[k], topn=topn, reverse=True)
-        print("K={:d}".format(k))
-        print("  word: {:s}".format(' '.join(V[topn_vocab_indices])))
-        print("  aux: {:s}".format(' '.join(S[topn_aux_indices])))
+    def get_topics(self, topn=10):
+        return get_topics(self.n_kw, self.vocab, self.beta, topn=topn)
+    
+    def __getitem__(self, key):
+        return self.__params[key]

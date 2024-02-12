@@ -1,5 +1,7 @@
 import logging
 import numpy as np
+import pathlib
+import re
 # np.seterr(all="raise")
 
 from scipy.special import gammaln
@@ -7,31 +9,158 @@ from scipy.special import gammaln
 from gensim import matutils
 from gensim.corpora.dictionary import Dictionary
 from gensim.models.coherencemodel import CoherenceModel
+from gensim.models.word2vec import LineSentence
 from itertools import combinations
-from tqdm import tqdm
+from pathlib import Path
+from tqdm.auto import tqdm
 
 
-def perplexity(L, n_kw, n_k, n_dk, n_d, alpha, beta):
-    likelihood = polyad(n_dk, n_d, alpha) + polyaw(n_kw, n_k, beta)
-    return np.exp(-likelihood/L)
+def perplexity(N, n_kw, n_dk, alpha, beta):
+    likelihood = polyad(n_dk, alpha) + polyaw(n_kw, beta)
+    return np.exp(-likelihood/N)
 
 
-def polyad(n_dk, n_d, alpha):
+def polyad(n_dk, alpha):
     N = n_dk.shape[0]
     K = n_dk.shape[1]
+    n_d = np.sum(n_dk, 1)
     likelihood = np.sum(gammaln(K * alpha) - gammaln(K * alpha + n_d))
     for n in range(N):
         likelihood += np.sum(gammaln(n_dk[n, :] + alpha) - gammaln(alpha))
     return likelihood
 
 
-def polyaw(n_kw, n_k, beta):
+def polyaw(n_kw, beta):
     K = n_kw.shape[0]
     V = n_kw.shape[1]
+    n_k = np.sum(n_kw, 1)
     likelihood = np.sum(gammaln(V * beta) - gammaln(V * beta + n_k))
     for k in range(K):
         likelihood += np.sum(gammaln(n_kw[k, :] + beta) - gammaln(beta))
     return likelihood
+
+
+class Progress:
+    
+    def __init__(self, n_iter):
+        self.pbar = tqdm(total=n_iter)
+
+    def update(self, ppl, n=1):
+        self.pbar.update(n)
+        self.pbar.set_postfix(ppl=f"{ppl:.3f}")        
+
+
+def norm(x):
+    return x/np.sum(x)
+
+
+def cnorm(M): # column-wise normalize matrix
+    s = np.sum(M,0)
+    return np.dot(M,np.diag(1.0/s))
+
+
+def rnorm(M): # row-wise normalize matrix
+    return np.array([m/np.sum(m) for m in M])
+
+
+def document_generator(path):
+    doc = []
+    for line in open(path, 'r'):
+        if re.match(r'^[ \s\u3000]*$', line):
+            if len(doc) > 0:
+                yield doc
+                doc = []
+        else:
+            words = line.strip().split()
+            doc.extend(words)
+    if len(doc) > 0:
+        yield doc
+
+def detect_input(input, doc_break=False):
+    if isinstance(input, str):
+        # Path like string input
+        if re.fullmatch(r'.{,20}(/[^/]{,20})+', input):
+            corpus = detect_input(Path(input))
+        else:
+            corpus = text2list(input, doc_break)
+    elif isinstance(input, list):
+        corpus = input
+    elif isinstance(input, pathlib.PosixPath):
+        if doc_break:
+            corpus = document_generator(input)
+        else:
+            corpus = LineSentence(input)
+    else:
+        raise ValueError('Invalid Input')
+
+    return corpus
+
+
+def text2list(text, docbreak=False):
+    if docbreak is False:
+        return [line.split() for line in text.strip().split('\n')]
+
+    docs, doc = [], []
+    for line in text.strip().split('\n'):
+        if re.match(r'^[ \s\u3000]*$', line):
+            if len(doc) > 0:
+                docs.append(doc)
+                doc = []
+        else:
+            words = line.strip().split()
+            doc.extend(words)
+    if len(doc) > 0:
+        docs.append(doc)
+    return docs
+
+
+def read_corpus(corpus):
+    D, vocab, word2id = [], [], {}
+    for doc in corpus:
+        id_doc = []
+        for word in doc:
+            if word not in word2id:
+                word2id[word] = len(vocab)
+                vocab.append(word)
+            id_doc.append(word2id[word])
+        D.append(np.array(id_doc, dtype=np.int32))
+    vocab = np.array(vocab, dtype=np.unicode_)
+    return D, vocab, word2id
+
+
+def assign_random_topic(D, K):
+    return [np.random.randint(K, size=len(d)) for d in D]
+
+
+def draw_phi(n_kw, beta):
+    K, V = n_kw.shape
+    phi = np.empty((V, K), dtype=np.float32)
+    n_k = np.sum(n_kw, 1)
+    for v in range(V):
+        for k in range(K):
+            phi[v, k] = (n_kw[k, v] + beta) / (n_k[k] + V * beta)
+    return phi
+
+
+def draw_theta(n_dk, alpha):
+    D, K = n_dk.shape
+    theta = np.empty((D, K), dtype=np.float32)
+    n_d = np.sum(n_dk, 1)
+    for d in range(D):
+        for k in range(K):
+            theta[d, k] = (n_dk[d, k] + alpha) / (n_d[d] + K * alpha)
+    return theta
+
+
+def get_topics(n_kw, vocab, beta, topn=10):
+    topics = []
+    K, V = n_kw.shape
+    n_k = np.sum(n_kw, 1)
+    for k in range(K):
+        topn_indices = matutils.argsort(n_kw[k, :], topn=topn, reverse=True)
+        word_probs = [(vocab[w], (n_kw[k, w] + beta) / (n_k[k] + V * beta)) for w in topn_indices]
+        topics.append(word_probs)
+    return topics
 
 
 def get_coherence_model(W, n_kw, top_words, coherence_model, test_texts=None, corpus=None, coo_matrix=None, coo_word2id=None, wv=None, verbose=False):
@@ -154,3 +283,19 @@ class PMICoherence():
                 if w_x in self.word2id and w_y in self.word2id:
                     scores.append(self.pmi(x, y, w_x, w_y))
         return np.mean(scores)
+
+
+def jlh_score(n_kw, beta, vocab, topn=10):
+    topics = []
+    K, V = n_kw.shape
+    n_k = np.sum(n_kw, 1)
+    n = np.sum(n_kw)
+    jlh_scores = np.zeros((K, V), dtype=np.float32)
+    for k in range(K):
+        for w in range(V):
+            glo = (n_kw[k, w] + V)/(n + V * beta)
+            loc = (n_kw[k, w] + V)/(n_k[k] + V * beta)
+            jlh_scores[k, w] = (glo-loc) * (glo/loc)
+        topn_words = matutils.argsort(jlh_scores[k], topn=topn, reverse=True)
+        topics.append([(vocab[w], float(jlh_scores[k, w])) for w in topn_words])
+    return topics
