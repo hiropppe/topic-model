@@ -27,7 +27,7 @@ class CTM():
                  beta=0.01,
                  gamma=0.01,
                  n_iter=1000,
-                 report_every=100):
+                 report_every=10):
         corpus = detect_input(corpus)
         side_information = detect_input(side_information)
         self.K = K
@@ -44,11 +44,9 @@ class CTM():
         self.V, self.S = len(self.vocab), len(self.side_vocab)
         self.N, self.M = sum(len(d) for d in self.W), sum(len(d) for d in self.X)
 
-        logging.info(f"Corpus size: {self.D} docs, {self.N} words, {self.M} side information words")
-        logging.info(f"Vocabuary size: {self.V}")
-        logging.info(f"Side information size: {self.S}")
+        logging.info(f"Corpus: {self.D} docs, {self.N} words, {self.V} vocab.")
+        logging.info(f"Side information: {self.M} words, {self.S} vocab.")
         logging.info(f"Number of topics: {self.K}")
-
         logging.info(f"alpha: {self.alpha:.3f}")
         logging.info(f"beta: {self.beta:.3f}")
         logging.info(f"gamma: {self.gamma:.3f}")
@@ -64,7 +62,7 @@ class CTM():
 
         model.init(self.W, self.X, self.Z, self.Y, self.n_kw, self.m_kx, self.n_dk, self.m_dk, self.n_k, self.m_k, self.n_d, self.m_d)
 
-        logging.info("Running Gibbs sampling inference: ")
+        logging.info("Running Gibbs sampling inference")
         logging.info(f"Number of sampling iterations: {n_iter}")
 
         start = time.time()

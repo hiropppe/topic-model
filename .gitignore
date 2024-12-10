@@ -107,3 +107,4 @@ venv.bak/
 *.cpp
 
 cytm/*.html
+/output

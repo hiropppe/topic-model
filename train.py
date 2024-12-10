@@ -21,7 +21,8 @@ def lda(args):
                 K=args.n_topics,
                 alpha=args.alpha,
                 beta=args.beta,
-                n_iter=args.n_iter)
+                n_iter=args.n_iter,
+                report_every=args.report_every)
     return model
 
 
@@ -86,8 +87,8 @@ def add_common_arguments(parser):
     parser.add_argument('--n_iter', '-i', type=int, default=100)
     parser.add_argument('--report_every', '-r', type=int, default=10)
     parser.add_argument('--prefix')
-    parser.add_argument('--output_dir', default='.')
-    parser.add_argument('--verbose', '-v', action='store_true')
+    parser.add_argument('--output_dir', default='./output')
+    parser.add_argument('--verbose', '-v', action='store_true', default=True)
 
 
 def main():
@@ -122,7 +123,7 @@ def main():
     atm_parser.add_argument('Author')
     atm_parser.set_defaults(handler=atm)
     # LDAb
-    ldab_parser = subparsers.add_parser('ldab', help='Author Topic Model')
+    ldab_parser = subparsers.add_parser('ldab', help='LDA with a background distribution')
     add_common_arguments(ldab_parser)
     ldab_parser.add_argument('--eta', '-e', default=0.005)
     ldab_parser.add_argument('--a0', '-a0', default=2.0)

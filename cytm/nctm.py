@@ -29,7 +29,7 @@ class NCTM():
                  gamma=0.01,
                  eta=1.0,
                  n_iter=1000,
-                 report_every=100):
+                 report_every=10):
         corpus = detect_input(corpus)
         side_information = detect_input(side_information)
         self.K = K
@@ -48,15 +48,13 @@ class NCTM():
         self.V, self.S = len(self.vocab), len(self.side_vocab)
         self.N, self.M = sum(len(d) for d in self.W), sum(len(d) for d in self.X)
 
-        logging.info(f"Corpus size: {self.D} docs, {self.N} words, {self.M} side information words")
-        logging.info(f"  Vocabuary size: {self.V}")
-        logging.info(f"  Side information size: {self.S}")
-        logging.info(f"  Number of topics: {self.K}")
-
-        logging.info(f"  alpha: {self.alpha:.3f}")
-        logging.info(f"  beta: {self.beta:.3f}")
-        logging.info(f"  gamma: {self.gamma:.3f}")
-        logging.info(f"  eta: {self.eta:.3f}")
+        logging.info(f"Corpus: {self.D} docs, {self.N} words, {self.V} vocab.")
+        logging.info(f"Side information: {self.M} words, {self.S} vocab.")
+        logging.info(f"Number of topics: {self.K}")
+        logging.info(f"alpha: {self.alpha:.3f}")
+        logging.info(f"beta: {self.beta:.3f}")
+        logging.info(f"gamma: {self.gamma:.3f}")
+        logging.info(f"eta: {self.eta:.3f}")
 
         self.n_kw = np.zeros((self.K, self.V), dtype=np.int32)  # number of word w assigned to topic k
         self.n_dk = np.zeros((self.D, self.K), dtype=np.int32)  # number of word in document d assigned to topic k

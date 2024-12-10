@@ -12,6 +12,7 @@ from gensim import matutils
 from scipy.special import gammaln
 
 
+# Reference (original source): http://chasen.org/~daiti-m/dist/ldab/
 class LDAb():
 
     def __init__(self,
@@ -23,7 +24,7 @@ class LDAb():
                  a0 = 2.0,
                  a1 = 1.0,
                  n_iter=1000,
-                 report_every=100):
+                 report_every=10):
         """ LDAb: LDA with a background distribution
         Parameters
         ----------
@@ -55,8 +56,7 @@ class LDAb():
         self.N = sum(len(d) for d in self.W)
         self.V = len(self.vocab)
 
-        logging.info(f"Corpus size: {self.D} docs, {self.N} words")
-        logging.info(f"Vocabuary size: {self.V}")
+        logging.info(f"Corpus: {self.D} docs, {self.N} words, {self.V} vocab.")
         logging.info(f"Number of topics: {self.K}")
         logging.info(f"alpha: {self.alpha:.3f}")
         logging.info(f"beta: {self.beta:.3f}")
@@ -68,7 +68,7 @@ class LDAb():
         self.n_w = np.zeros(self.V, dtype=np.int32)  #
         self.n_ws = np.zeros(1, dtype=np.int32)      #
 
-        logging.info("Running Gibbs sampling inference: ")
+        logging.info("Running Gibbs sampling inference")
         logging.info(f"Number of sampling iterations: {n_iter}")
 
         ppl = 0.0

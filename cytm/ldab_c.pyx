@@ -47,7 +47,7 @@ def gibbs(list W,
     for d in range(D):
         d = seq[d]
         Nd = len(W[d])
-        rands = npr.rand(2*N)
+        rands = npr.rand(2*Nd)
         for n in range(Nd):
             w_dn = W[d][n]
             z_dn = Z[d][n]

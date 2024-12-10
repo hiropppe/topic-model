@@ -25,7 +25,7 @@ class PLTM():
                  alpha=0.1,
                  beta=0.01,
                  n_iter=1000,
-                 report_every=100):
+                 report_every=10):
 
         self.K = K
         self.alpha = alpha
@@ -53,15 +53,14 @@ class PLTM():
         self.D = len(self.W[0])
         self.beta = np.array([beta]*self.T)
 
-        logging.info(f"Corpus size: {self.D} docs, {self.N[0]} words")
-        logging.info(f"  Vocabuary size: {self.V[0]}")
-        logging.info(f"  Number of topics: {K}")
-        logging.info(f"  alpha: {alpha:.3f}")
-        logging.info(f"  beta: {beta:.3f}")
+        logging.info(f"Corpus: {self.D} docs, {self.N[0]} words, {self.V[0]} vocab.")
 
         for t in range(1, self.T):
-            logging.info(f"  Side Information[{t}] size: {self.N[t]} words")
-            logging.info(f"    Vocabuary size: {self.V[t]}")
+            logging.info(f"Side Information[{t}]: {self.N[t]} words, {self.V[t]} vocab.")
+
+        logging.info(f"Number of topics: {K}")
+        logging.info(f"alpha: {alpha:.3f}")
+        logging.info(f"beta: {beta:.3f}")
 
         self.n_kw = [np.zeros((self.K, self.V[t]), dtype=np.int32) for t in range(self.T)]  # number of word w assigned to topic k
         self.n_dk = np.zeros((self.T, self.D, self.K), dtype=np.int32)  # number of word in document d assigned to topic k

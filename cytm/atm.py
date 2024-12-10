@@ -24,7 +24,7 @@ class ATM():
                  alpha=0.1,
                  beta=0.01,
                  n_iter=1000,
-                 report_every=100):
+                 report_every=10):
         corpus = detect_input(corpus)
         author = detect_input(author)
         self.K = K
@@ -37,17 +37,15 @@ class ATM():
         self.D = len(self.W)
         self.V, self.S = len(self.vocab), len(self.authors)
         self.N, self.M = sum(len(d) for d in self.W), sum(len(d) for d in self.A)
-        print(len(self.A), len(self.W))
+
         self.Z = assign_random_topic(self.W, self.K)
         self.Y = [np.random.randint(len(self.A[d]), size=len(self.W[d])) for d in range(self.D)]
 
-        logging.info(f"Corpus size: {self.D} docs, {self.N} words, {self.M} writers")
-        logging.info(f"  Vocabuary size: {self.V}")
-        logging.info(f"  Number of topics: {self.K}")
-        logging.info(f"  Number of authors: {self.S}")
-
-        logging.info(f"  alpha: {self.alpha:.3f}")
-        logging.info(f"  beta: {self.beta:.3f}")
+        logging.info(f"Corpus: {self.D} docs, {self.N} words, {self.V} vocab.")
+        logging.info(f"Author: {self.M} words, {self.S} vocab.")
+        logging.info(f"Number of topics: {self.K}")
+        logging.info(f"alpha: {self.alpha:.3f}")
+        logging.info(f"beta: {self.beta:.3f}")
 
         self.n_kw = np.zeros((self.K, self.V), dtype=np.int32)  # number of word w assigned to topic k
         self.n_dk = np.zeros((self.D, self.K), dtype=np.int32)  # number of words in document d assigned to topic k
