@@ -1,0 +1,12 @@
+services:
+  text-model:
+    build: .
+    container_name: text-model
+    image: text-model
+    volumes:
+      - .:/usr/src/develop
+    network_mode: host
+    #ports:
+    #  - 8888:8888
+    #tty: true
+    #command: ["bash"]
