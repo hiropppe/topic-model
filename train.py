@@ -12,6 +12,7 @@ from cytm.ctm import CTM
 from cytm.nctm import NCTM
 from cytm.atm import ATM
 from cytm.ldab import LDAb
+from cytm.nlde import NLDE
 
 from os.path import expanduser
 
@@ -79,6 +80,11 @@ def ldab(args):
     return model
 
 
+def nlde(args):
+    model = NLDE(args.Corpus, K=args.K)
+    return model
+
+
 def add_common_arguments(parser):
     parser.add_argument('Corpus')
     parser.add_argument('--alpha', '-a', default=0.1)
@@ -129,6 +135,14 @@ def main():
     ldab_parser.add_argument('--a0', '-a0', default=2.0)
     ldab_parser.add_argument('--a1', '-a1', default=1.0)
     ldab_parser.set_defaults(handler=ldab)
+    # Neural Linear Document Embeddings
+    nlde_parser = subparsers.add_parser('nlde', help='Neural Linear Document Embeddings')
+    nlde_parser.add_argument('Corpus')
+    nlde_parser.add_argument('-K', type=int, default=100)
+    nlde_parser.add_argument('--prefix')
+    nlde_parser.add_argument('--output_dir', default='./output')
+    nlde_parser.add_argument('--verbose', '-v', action='store_true', default=True)
+    nlde_parser.set_defaults(handler=nlde)
 
     args = parser.parse_args()
 

@@ -5,18 +5,18 @@ from sklearn.feature_extraction.text import CountVectorizer
 from tqdm import tqdm
 
 from .sppmi_c import sppmis
+from .util import detect_input
 
 eps = 1e-8
 
 
-class Researcher2Vec():
+class NLDE():
 
     def __init__(self,
                  corpus,
                  user2doc=None,
                  K = 100,
                  shift=1,
-                 lowercase=True,
                  max_df=1.0,
                  min_df=1,
                  max_features=None):
@@ -24,8 +24,14 @@ class Researcher2Vec():
         self.shift = shift
         self.max_features = max_features
         
-        self.cv = CountVectorizer(binary=True, lowercase=lowercase, max_df=max_df, min_df=min_df, max_features=self.max_features)
-        Co = self.cv.fit_transform((tokens.strip() for tokens in tqdm(corpus))).astype(np.float32)
+        self.cv = CountVectorizer(tokenizer=_notokens,
+                                  token_pattern=None,
+                                  lowercase=False,
+                                  binary=True,
+                                  max_df=max_df,
+                                  min_df=min_df,
+                                  max_features=self.max_features)
+        Co = self.cv.fit_transform(detect_input(corpus)).astype(np.float32)
         Y = sppmis(Co, self.shift, eps)
         U, S, V = svds(Y, k=self.K)
         W = V.T
@@ -40,7 +46,7 @@ class Researcher2Vec():
                 self.user2id[user] = i
             self.user_vectors = np.array(user_vectors)
 
-    def __dict__(self, user):
+    def __getitem__(self, user):
         return self.__user_vector(user)
 
     def encode(self, X, batch=1000):
@@ -73,4 +79,8 @@ class Researcher2Vec():
 
     def __user_vector(self, user):
         return self.user_vectors[self.user2id[user]]
+
+
+def _notokens(doc):
+    return doc
 

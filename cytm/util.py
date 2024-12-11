@@ -84,7 +84,7 @@ def detect_input(input, doc_break=False):
         else:
             corpus = text2list(input, doc_break)
     elif isinstance(input, list):
-        corpus = input
+        corpus = input if isinstance(input[0], list) else [doc.split() for doc in input]
     elif isinstance(input, pathlib.PosixPath):
         if doc_break:
             corpus = document_generator(input)
