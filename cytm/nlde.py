@@ -34,15 +34,15 @@ class NLDE():
         Co = self.cv.fit_transform(detect_input(corpus)).astype(np.float32)
         Y = sppmis(Co, self.shift, eps)
         U, S, V = svds(Y, k=self.K)
-        W = V.T
-        self.document_vectors = np.dot(U, np.sqrt(np.diag(S)))
-        self.R = np.linalg.solve(np.dot(W.T, W), W.T)
+        self.D = np.dot(U,   np.sqrt(np.diag(S)))
+        self.W = np.dot(V.T, np.sqrt(np.diag(S)))
+        self.R = np.linalg.solve(np.dot(self.W.T, self.W), self.W.T)
 
         if user2doc:
             self.users = list(user2doc.keys())
             self.user2id, user_vectors = {}, []
             for i, (user, indices) in enumerate(user2doc.items()):
-                user_vectors.append(self.document_vectors[indices].mean(axis=0))
+                user_vectors.append(self.D[indices].mean(axis=0))
                 self.user2id[user] = i
             self.user_vectors = np.array(user_vectors)
 
