@@ -11,7 +11,7 @@
 ### Neural Document Models
 - SPPMI-SVD
 
-### Build
+### Install
 ```
-python3 setup.py build_ext -i
+poetry add git+https://github.com/hiropppe/topic-model.git#master
 ```
