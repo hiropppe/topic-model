@@ -9,14 +9,17 @@ from distutils.extension import Extension
 from Cython.Build import cythonize
 
 
+extra_compile_args=["-std=c++11", "-O3", "-mtune=native", "-march=native"]
+#extra_compile_args=["-std=c++11", "-O3", "-mtune=native", "-march=native", "-mfpmath=both"]
+
 extensions = [
-    Extension('cytm.lda_c',   sources=['cytm/lda_c.pyx'],   language="c++", extra_compile_args=["-std=c++11", "-O3", "-mtune=native", "-march=native", "-mfpmath=both"]),
-    Extension('cytm.ldab_c',  sources=['cytm/ldab_c.pyx'],  language="c++", extra_compile_args=["-std=c++11", "-O3", "-mtune=native", "-march=native", "-mfpmath=both"]),
-    Extension('cytm.atm_c',   sources=['cytm/atm_c.pyx'],   language="c++", extra_compile_args=["-std=c++11", "-O3", "-mtune=native", "-march=native", "-mfpmath=both"]),
-    Extension('cytm.pltm_c',  sources=['cytm/pltm_c.pyx'],  language="c++", extra_compile_args=["-std=c++11", "-O3", "-mtune=native", "-march=native", "-mfpmath=both"]),
-    Extension('cytm.ctm_c',   sources=['cytm/ctm_c.pyx'],   language="c++", extra_compile_args=["-std=c++11", "-O3", "-mtune=native", "-march=native", "-mfpmath=both"]),
-    Extension('cytm.nctm_c',  sources=['cytm/nctm_c.pyx'],  language="c++", extra_compile_args=["-std=c++11", "-O3", "-mtune=native", "-march=native", "-mfpmath=both"]),
-    Extension('cytm.sppmi_c', sources=['cytm/sppmi_c.pyx'], language="c++", extra_compile_args=["-std=c++11", "-O3", "-mtune=native", "-march=native", "-mfpmath=both"]),
+    Extension('cytm.lda_c',   sources=['cytm/lda_c.pyx'],   language="c++", extra_compile_args=extra_compile_args),
+    Extension('cytm.ldab_c',  sources=['cytm/ldab_c.pyx'],  language="c++", extra_compile_args=extra_compile_args),
+    Extension('cytm.atm_c',   sources=['cytm/atm_c.pyx'],   language="c++", extra_compile_args=extra_compile_args),
+    Extension('cytm.pltm_c',  sources=['cytm/pltm_c.pyx'],  language="c++", extra_compile_args=extra_compile_args),
+    Extension('cytm.ctm_c',   sources=['cytm/ctm_c.pyx'],   language="c++", extra_compile_args=extra_compile_args),
+    Extension('cytm.nctm_c',  sources=['cytm/nctm_c.pyx'],  language="c++", extra_compile_args=extra_compile_args),
+    Extension('cytm.sppmi_c', sources=['cytm/sppmi_c.pyx'], language="c++", extra_compile_args=extra_compile_args),
 ]
 
 #core.setup(

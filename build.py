@@ -6,7 +6,8 @@ from distutils.core import Distribution, Extension
 
 from Cython.Build import cythonize
 
-extra_compile_args=["-std=c++11", "-O3", "-mtune=native", "-march=native", "-mfpmath=both", "-msse", "-msse2", "-msse3", "-msse4", "-msse4.1", "-msse4.2", "-mfma"]
+extra_compile_args=["-std=c++11", "-O3", "-mtune=native", "-march=native"]
+#extra_compile_args=["-std=c++11", "-O3", "-mtune=native", "-march=native", "-mfpmath=both", "-msse", "-msse2", "-msse3", "-msse4", "-msse4.1", "-msse4.2", "-mfma"]
 include_dirs = [numpy.get_include(), 'cytm/include']
 
 

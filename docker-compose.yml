@@ -8,5 +8,5 @@ services:
     network_mode: host
     #ports:
     #  - 8888:8888
-    #tty: true
-    #command: ["bash"]
+    tty: true
+    command: ["bash"]

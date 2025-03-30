@@ -27,6 +27,6 @@ RUN pipx install poetry
 COPY . /text-model
 
 WORKDIR /text-model
-RUN poetry install
+#RUN poetry install
 
-CMD ["poetry", "run", "jupyter", "lab", "--allow-root", "--ip=0.0.0.0", "--NotebookApp.token=''", "--no-browser"]
+#CMD ["poetry", "run", "jupyter", "lab", "--allow-root", "--ip=0.0.0.0", "--NotebookApp.token=''", "--no-browser"]
