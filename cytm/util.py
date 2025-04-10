@@ -114,8 +114,8 @@ def text2list(text, docbreak=False):
     return docs
 
 
-def read_corpus(corpus):
-    D, vocab, word2id = [], [], {}
+def read_corpus(corpus, word2id={}):
+    D, vocab = [], list(word2id.keys())
     for doc in corpus:
         id_doc = []
         for word in doc:
@@ -129,26 +129,30 @@ def read_corpus(corpus):
 
 
 def assign_random_topic(D, K):
-    return [np.random.randint(K, size=len(d)) for d in D]
+    return [np.random.randint(K, size=len(d)).astype(np.int32) for d in D]
 
 
 def draw_phi(n_kw, beta):
-    K, V = n_kw.shape
-    phi = np.empty((V, K), dtype=np.float32)
-    n_k = np.sum(n_kw, 1)
-    for v in range(V):
-        for k in range(K):
-            phi[v, k] = (n_kw[k, v] + beta) / (n_k[k] + V * beta)
+    phi = cnorm(n_kw.T + beta)
+    # eq 
+    #K, V = n_kw.shape
+    #phi = np.empty((V, K), dtype=np.float32)
+    #n_k = np.sum(n_kw, 1)
+    #for v in range(V):
+    #    for k in range(K):
+    #        phi[v, k] = (n_kw[k, v] + beta) / (n_k[k] + V * beta)
     return phi
 
 
 def draw_theta(n_dk, alpha):
-    D, K = n_dk.shape
-    theta = np.empty((D, K), dtype=np.float32)
-    n_d = np.sum(n_dk, 1)
-    for d in range(D):
-        for k in range(K):
-            theta[d, k] = (n_dk[d, k] + alpha) / (n_d[d] + K * alpha)
+    theta = rnorm(n_dk + alpha)
+    # eq
+    #D, K = n_dk.shape
+    #theta = np.empty((D, K), dtype=np.float32)
+    #n_d = np.sum(n_dk, 1)
+    #for d in range(D):
+    #    for k in range(K):
+    #        theta[d, k] = (n_dk[d, k] + alpha) / (n_d[d] + K * alpha)
     return theta
 
 

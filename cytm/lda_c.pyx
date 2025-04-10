@@ -21,21 +21,25 @@ def init(list D,
          np.ndarray[INT_t, ndim=1] n_d not None):
 
     cdef int N = n_dk.shape[0]
-    cdef int N_d = 0
-    cdef Py_ssize_t w_dn, z_dn, z_new
-
+    cdef int N_d
+    cdef Py_ssize_t d, n, w_dn, z_dn
+    cdef np.ndarray[INT_t, ndim=1] zd
+    cdef np.ndarray[INT_t, ndim=1] dd
     for d in range(N):
-        n_d[d] = len(D[d])
-        for n in range(n_d[d]):
-            w_dn = D[d][n]
-            z_dn = Z[d][n]
+        N_d = len(D[d])
+        n_d[d] = N_d
+        zd = Z[d]
+        dd = D[d]
+        for n in range(N_d):
+            z_dn = zd[n]
+            w_dn = dd[n]
             n_kw[z_dn, w_dn] += 1
             n_dk[d, z_dn] += 1
             n_k[z_dn] += 1
 
+
 def inference(list D,
               list Z,
-              int L,
               np.ndarray[INT_t, ndim=2] n_kw not None,
               np.ndarray[INT_t, ndim=2] n_dk not None,
               np.ndarray[INT_t, ndim=1] n_k not None,
@@ -45,25 +49,28 @@ def inference(list D,
     cdef int N = n_dk.shape[0]
     cdef int K = n_dk.shape[1]
     cdef int V = n_kw.shape[1]
-    cdef int m, n, d, w
-    cdef Py_ssize_t w_dn, z_dn, z_new
+    cdef int M
+    cdef Py_ssize_t m, n, d, w_dn, z_dn, z_new
     cdef double total
     cdef np.ndarray[DOUBLE_t, ndim=1] p = np.zeros(K)
     cdef np.ndarray[DOUBLE_t, ndim=1] rands
-    #cdef np.ndarray[INT_t, ndim=1] seq = np.zeros(N, dtype=np.int32)
+    cdef np.ndarray[INT_t, ndim=1] seq = np.zeros(N, dtype=np.int32)
+    cdef np.ndarray[INT_t, ndim=1] zd
+    cdef np.ndarray[INT_t, ndim=1] dd
 
-    #for d in range(N):
-    #    seq[d] = d
-    #np.random.shuffle(seq)
+    for d in range(N):
+        seq[d] = d
+    np.random.shuffle(seq)
 
-    rands = np.random.rand(L)
-    w = 0
     for m in range(N):
-        #d = seq[m]
-        d = m
-        for n in range(n_d[d]):
-            z_dn = Z[d][n]
-            w_dn = D[d][n]
+        d = seq[m]
+        zd = Z[d]
+        dd = D[d]
+        M = n_d[d]
+        rands = np.random.rand (M)
+        for n in range(M):
+            z_dn = zd[n]
+            w_dn = dd[n]
 
             n_kw[z_dn, w_dn] -= 1
             n_dk[d, z_dn] -= 1
@@ -74,12 +81,12 @@ def inference(list D,
                 p[k] = (n_kw[k, w_dn] + beta) / (n_k[k] + V * beta) * (n_dk[d, k] + alpha)
                 total += p[k]
 
-            rands[w] = total * rands[w]
+            rands[n] = total * rands[n]
             total = 0.0
             z_new = 0
             for k in range(K):
                 total += p[k]
-                if rands[w] < total:
+                if rands[n] < total:
                     z_new = k
                     break
             
@@ -88,4 +95,3 @@ def inference(list D,
             n_dk[d, z_new] += 1
             n_k[z_new] += 1
 
-            w+=1
